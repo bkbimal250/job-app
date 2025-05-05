@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { X, Upload, MapPin, Clock, Mail, Phone, Globe, ImagePlus } from 'lucide-react';
 
-const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
+const BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+
+const AddSpaForm = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     address: {
@@ -24,6 +27,8 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
   const [selectedState, setSelectedState] = useState('');
   const [stateSearch, setStateSearch] = useState('');
   const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Indian states and UTs
   const indianStates = [
@@ -73,9 +78,40 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
     setShowStateDropdown(false);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${BASE_URL}/spas/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create spa');
+      }
+
+      const data = await response.json();
+      console.log('Spa created successfully:', data);
+      
+      // Call onSuccess with the created spa data
+      if (onSuccess) {
+        onSuccess(data);
+      }
+      
+      // Close the form
+      onClose();
+    } catch (err) {
+      setError(err.message);
+      console.error('Error creating spa:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGalleryUpload = (e) => {
@@ -103,10 +139,17 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
           <button 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700"
+            disabled={isLoading}
           >
             <X size={24} />
           </button>
         </div>
+
+        {error && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-md">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Basic Information */}
@@ -123,6 +166,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                 required
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter spa name"
+                disabled={isLoading}
               />
             </div>
 
@@ -140,6 +184,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter phone number"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -158,6 +203,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter email address"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -175,6 +221,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   onChange={handleChange}
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="https://example.com"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -198,6 +245,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter street address"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -215,6 +263,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter city"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -230,6 +279,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter district"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -248,8 +298,9 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Search state"
+                  disabled={isLoading}
                 />
-                {showStateDropdown && (
+                {showStateDropdown && !isLoading && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
                     {filteredStates.map((state, index) => (
                       <div
@@ -277,6 +328,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   pattern="[0-9]{6}"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   placeholder="Enter pincode"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -297,6 +349,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   onChange={handleChange}
                   required
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -314,6 +367,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                   onChange={handleChange}
                   required
                   className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -333,6 +387,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                 onChange={handleChange}
                 className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Enter logo URL"
+                disabled={isLoading}
               />
             </div>
           </div>
@@ -344,7 +399,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
             </label>
             <div className="border-2 border-dashed border-gray-300 rounded-md p-4">
               <div className="flex items-center justify-center">
-                <label className="cursor-pointer flex items-center">
+                <label className={`cursor-pointer flex items-center ${isLoading ? 'opacity-50' : ''}`}>
                   <ImagePlus className="mr-2 text-gray-400" size={20} />
                   <span className="text-gray-600">Upload gallery images</span>
                   <input
@@ -353,6 +408,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                     accept="image/*"
                     onChange={handleGalleryUpload}
                     className="hidden"
+                    disabled={isLoading}
                   />
                 </label>
               </div>
@@ -374,6 +430,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                           }));
                         }}
                         className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1"
+                        disabled={isLoading}
                       >
                         <X size={16} />
                       </button>
@@ -393,6 +450,7 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
                 checked={formData.isActive}
                 onChange={handleChange}
                 className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                disabled={isLoading}
               />
               <span className="ml-2 text-sm font-medium text-gray-700">
                 Active Status
@@ -406,14 +464,16 @@ const AddSpaForm = ({ isOpen, onClose, onSubmit }) => {
               type="button"
               onClick={onClose}
               className="px-6 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+              disabled={isLoading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              className={`px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 ${isLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLoading}
             >
-              Save Spa
+              {isLoading ? 'Saving...' : 'Save Spa'}
             </button>
           </div>
         </form>

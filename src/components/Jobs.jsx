@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Search, Plus, MapPin, Building2, Pencil, Eye, Trash2 } from 'lucide-react';
 import AddSpaJobForm from './AddSpaJobForm';
 import EditSpaJobForm from './EditSpaJobForm';
+import { getToken } from '../utils/getToken';
+import { AuthContext } from '../auth/AuthContext';
+import axios from 'axios';
+import { useContext } from 'react';
+
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
 
 const Jobs = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -11,62 +17,87 @@ const Jobs = () => {
   const [showAddJobForm, setShowAddJobForm] = useState(false);
   const [showEditJobForm, setShowEditJobForm] = useState(false);
   const [selectedJob, setSelectedJob] = useState(null);
+  const [job, setJob] = useState([]);
+  const [error, setError] = useState('');
+  const { token } = useContext(AuthContext);
 
-  const dummyJobs = [
-    { 
-      id: 1, 
-      title: 'Spa Therapist', 
-      category: 'therapist', 
-      spa: 'Royal Spa', 
-      location: 'Los Angeles',
-      city: 'Los Angeles',
-      state: 'California', 
-      salary: '₹35,000 - ₹60,000',
-      description: 'Provide high-quality spa treatments to clients.',
-      requirements: 'Certificate in Spa Therapy',
-      experience: '2+ years',
-      hrWhatsapp: '9123456789',
-      hrPhone: '9123456789',
-      gender: 'Female',
-      isNewJob: true,
-      vacancies: 2,
-      applications: 12
-    },
-    { 
-      id: 2, 
-      title: 'Massage Specialist', 
-      category: 'therapist', 
-      spa: 'Zen Wellness', 
-      location: 'New York',
-      city: 'New York',
-      state: 'New York',
-      salary: '₹50,000 - ₹65,000',
-      isNewJob: false,
-      vacancies: 1,
-      applications: 8
-    },
-    { 
-      id: 3, 
-      title: 'Spa Manager', 
-      category: 'management', 
-      spa: 'Luxury Haven', 
-      location: 'Dallas',
-      city: 'Dallas',
-      state: 'Texas',
-      salary: '₹60,000 - ₹75,000',
-      isNewJob: false,
-      vacancies: 1,
-      applications: 25
-    },
-  ];
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const response = await axios.get(`${BASE_URL}/jobs`, {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+          },
+        });
+
+        setJob(response.data);
+        setError('');
+
+      } catch (err) {
+        console.error("Fetch error:", err);
+        setError("Unable to load jobs data.");
+      }
+    };
+    
+    fetchJobs();
+  }, [token]);
+
+  // Extract unique values for filters
+  const getCategoryOptions = () => {
+    const categories = new Set();
+    job.forEach(data => {
+      if (data.category && data.category.name) {
+        categories.add(data.category.name);
+      }
+    });
+    return Array.from(categories);
+  };
+
+  const getLocationOptions = () => {
+    const locations = new Set();
+    job.forEach(data => {
+      if (data.state) {
+        locations.add(data.state);
+      }
+    });
+    return Array.from(locations);
+  };
+
+  const getSpaOptions = () => {
+    const spas = new Set();
+    job.forEach(data => {
+      if (data.spa && data.spa.name) {
+        spas.add(data.spa.name);
+      }
+    });
+    return Array.from(spas);
+  };
+
+  // Filter jobs based on search and filter criteria
+  const filteredJobs = job.filter(data => {
+    const matchesSearch = searchTerm === '' || 
+      (data.title && data.title.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (data.spa && data.spa.name && data.spa.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesCategory = categoryFilter === 'all' || 
+      (data.category && data.category.name === categoryFilter);
+    
+    const matchesLocation = locationFilter === 'all' || 
+      data.state === locationFilter;
+    
+    const matchesSpa = spaFilter === 'all' || 
+      (data.spa && data.spa.name === spaFilter);
+    
+    return matchesSearch && matchesCategory && matchesLocation && matchesSpa;
+  });
 
   const handleAddJob = (jobData) => {
     console.log('Adding new spa job:', jobData);
     setShowAddJobForm(false);
   };
 
-  const handleEditJob = (job) => {
-    setSelectedJob(job);
+  const handleEditJob = (data) => {
+    setSelectedJob(data);
     setShowEditJobForm(true);
   };
 
@@ -76,9 +107,9 @@ const Jobs = () => {
     setSelectedJob(null);
   };
 
-  const handleDeleteJob = (job) => {
-    if (window.confirm(`Are you sure you want to delete ${job.title} position?`)) {
-      console.log('Deleting job:', job.id);
+  const handleDeleteJob = (data) => {
+    if (window.confirm(`Are you sure you want to delete ${data.title} position?`)) {
+      console.log('Deleting job:', data._id);
     }
   };
 
@@ -95,6 +126,12 @@ const Jobs = () => {
         </button>
       </div>
       
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-600 rounded-lg">
+          {error}
+        </div>
+      )}
+
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="p-6 border-b border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -115,10 +152,9 @@ const Jobs = () => {
               onChange={(e) => setCategoryFilter(e.target.value)}
             >
               <option value="all">All Categories</option>
-              <option value="therapist">Therapist</option>
-              <option value="management">Management</option>
-              <option value="receptionist">Receptionist</option>
-              <option value="technician">Technician</option>
+              {getCategoryOptions().map((category, index) => (
+                <option key={index} value={category}>{category}</option>
+              ))}
             </select>
             
             <select
@@ -127,9 +163,9 @@ const Jobs = () => {
               onChange={(e) => setLocationFilter(e.target.value)}
             >
               <option value="all">All Locations</option>
-              <option value="ca">California</option>
-              <option value="ny">New York</option>
-              <option value="tx">Texas</option>
+              {getLocationOptions().map((location, index) => (
+                <option key={index} value={location}>{location}</option>
+              ))}
             </select>
             
             <select
@@ -138,9 +174,9 @@ const Jobs = () => {
               onChange={(e) => setSpaFilter(e.target.value)}
             >
               <option value="all">All Spas</option>
-              <option value="royal">Royal Spa</option>
-              <option value="zen">Zen Wellness</option>
-              <option value="luxury">Luxury Haven</option>
+              {getSpaOptions().map((spa, index) => (
+                <option key={index} value={spa}>{spa}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -158,32 +194,32 @@ const Jobs = () => {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {dummyJobs.map((job) => (
-              <tr key={job.id}>
+            {filteredJobs.map((data, index) => (
+              <tr key={data._id || index}>
                 <td className="px-6 py-4 whitespace-nowrap font-medium">
                   <div className="flex items-center">
-                    {job.title}
-                    {job.isNewJob && (
+                    {data.title}
+                    {data.isNewJob && (
                       <span className="ml-2 px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
                         NEW
                       </span>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{job.category}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{job.spa}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{data.category?.name || '-'}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{data.spa?.name || '-'}</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <MapPin size={16} className="mr-1 text-gray-400" />
-                    {job.location}, {job.state}
+                    {data.location || '-'}, {data.state || '-'}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">{job.salary}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-center">{job.applications || 0}</td>
+                <td className="px-6 py-4 whitespace-nowrap">{data.salary || '-'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-center">{data.applications || 0}</td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm">
                   <div className="flex items-center space-x-3">
                     <button 
-                      onClick={() => handleEditJob(job)}
+                      onClick={() => handleEditJob(data)}
                       className="text-blue-600 hover:text-blue-900" 
                       title="Edit"
                     >
@@ -193,7 +229,7 @@ const Jobs = () => {
                       <Eye size={18} />
                     </button>
                     <button 
-                      onClick={() => handleDeleteJob(job)}
+                      onClick={() => handleDeleteJob(data)}
                       className="text-red-600 hover:text-red-900" 
                       title="Delete"
                     >
