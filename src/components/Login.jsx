@@ -4,6 +4,8 @@ import { Mail, Lock, Eye, EyeOff, Shield, Smartphone, Key } from "lucide-react";
 import { useAuth } from "../auth/AuthContext";
 import { loginWithEmail, sendOTP, verifyOTP } from "../services/authService";
 
+
+
 const Login = () => {
   const { login } = useAuth(); // moved inside component
   const navigate = useNavigate();
@@ -19,23 +21,34 @@ const Login = () => {
   const [otpSent, setOtpSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
 
-  const handleEmailLogin = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
 
-    try {
-      const data = await loginWithEmail(email, password);
-      console.log("Login success:", data);
-      login(data.token, data.role);
-      navigate("/dashboard");
-    } catch (error) {
-      console.error("Login error:", error);
-      setError(error.message || "Invalid email or password");
+
+const handleEmailLogin = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
+  setError("");
+
+  try {
+    const data = await loginWithEmail({ login: email, password }); // 👈 Use `login` here
+
+    if (data.role !== "admin") {
+      setError("You are not authorized to access this page.");
+      setIsLoading(false);
+      return;
     }
 
-    setIsLoading(false);
-  };
+    console.log("Login success:", data);
+    login(data.token, data.role);
+    navigate("/dashboard");
+  } catch (error) {
+    console.error("Login error:", error);
+    setError(error.message || "Invalid credentials");
+  }
+
+  setIsLoading(false);
+};
+
+
 
   const handleSendOTP = async () => {
     if (mobile.length !== 10) {

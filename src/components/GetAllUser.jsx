@@ -1,117 +1,691 @@
 import React, { useContext, useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import {
+  Search, Plus, User, Mail, Phone, UserPlus, X,
+  CheckCircle, AlertCircle, Users, RefreshCw, Shield,
+  Edit, Trash2, UserCheck, ChevronLeft, ChevronRight
+} from "lucide-react";
 import axios from "axios";
 import { AuthContext } from "../auth/AuthContext";
 import { getToken } from "../utils/getToken";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
 
 const GetAllUser = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [users, setUsers] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage] = useState(15);
+
+  // Form state for adding a new user
+  const [formData, setFormData] = useState({
+    email: "",
+    firstname: "",
+    lastname: "",
+    fullName: "",
+    gender: "Male",
+    phone: "",
+    role: "admin",
+    password: ""
+  });
+
+  // Form errors
+  const [formErrors, setFormErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { token } = useContext(AuthContext);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get(`${BASE_URL}/users`, {
-          headers: {
-            Authorization: `Bearer ${getToken()}`,
-          },
-        });
-
-        setUsers(response.data.users || []);
-        
-      } catch (err) {
-        console.error("Fetch error:", err);
-        setError("Unable to load users data.");
-      }
-    };
-
     fetchUsers();
   }, [token]);
 
+  // Auto-generate full name when first or last name changes
+  useEffect(() => {
+    const { firstname, lastname } = formData;
+    if (firstname || lastname) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: `${firstname} ${lastname}`.trim()
+      }));
+    }
+  }, [formData.firstname, formData.lastname]);
+
+  // Clear success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  // Reset to first page when search or filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${BASE_URL}/users`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      setUsers(response.data.users || []);
+      setError(null);
+    } catch (err) {
+      console.error("Fetch error:", err);
+      setError("Unable to load users data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+
+    // Clear error for this field
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {};
+
+    // Email validation
+    if (!formData.email.trim()) {
+      errors.email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      errors.email = "Please enter a valid email address";
+    }
+
+    // First name validation
+    if (!formData.firstname.trim()) {
+      errors.firstname = "First name is required";
+    }
+
+    // Last name validation
+    if (!formData.lastname.trim()) {
+      errors.lastname = "Last name is required";
+    }
+
+    // Phone validation
+    if (!formData.phone.trim()) {
+      errors.phone = "Phone number is required";
+    } else if (!/^\d{10,15}$/.test(formData.phone.replace(/\D/g, ''))) {
+      errors.phone = "Please enter a valid phone number";
+    }
+
+    // Password validation
+    if (!formData.password) {
+      errors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      errors.password = "Password must be at least 6 characters long";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // Handle form submission
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/users/register`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${getToken()}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+      console.log("User created:", response.data);
+
+      // Reset form and close modal
+      setFormData({
+        email: "",
+        firstname: "",
+        lastname: "",
+        fullName: "",
+        gender: "Male",
+        phone: "",
+        role: "user",
+        password: ""
+      });
+
+      setShowAddUserModal(false);
+      setSuccessMessage("User has been created successfully!");
+
+      // Refresh user list
+      fetchUsers();
+
+    } catch (err) {
+      console.error("Error creating user:", err);
+
+      // Handle specific error messages from the API
+      if (err.response && err.response.data && err.response.data.message) {
+        if (err.response.data.message.includes("email")) {
+          setFormErrors(prev => ({
+            ...prev,
+            email: err.response.data.message || "This email is already in use"
+          }));
+        } else {
+          setError(err.response.data.message || "Failed to create user");
+        }
+      } else {
+        setError("Failed to create user. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Filter users by name, email, phone, and role
   const filteredUsers = users.filter((user) => {
+    const lowerSearch = searchTerm.toLowerCase();
     const matchesSearch =
-      user.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email?.toLowerCase().includes(searchTerm.toLowerCase());
+      user.fullName?.toLowerCase().includes(lowerSearch) ||
+      user.email?.toLowerCase().includes(lowerSearch) ||
+      user.phone?.toLowerCase().includes(lowerSearch);
 
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
 
     return matchesSearch && matchesRole;
   });
 
+  // Pagination logic
+  const indexOfLastRecord = currentPage * recordsPerPage;
+  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredUsers.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = Math.ceil(filteredUsers.length / recordsPerPage);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+  
+  // Go to previous page
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+  
+  // Go to next page
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Get role badge color
+  const getRoleBadgeColor = (role) => {
+    switch (role.toLowerCase()) {
+      case 'admin':
+        return 'bg-purple-100 text-purple-800';
+      case 'spamanager':
+        return 'bg-indigo-100 text-indigo-800';
+      case 'user':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold mb-6">Users Management</h1>
-
-      {error && <p className="text-red-600 mb-4">{error}</p>}
-
-      <div className="bg-white rounded-lg shadow mb-6">
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input
-                type="text"
-                placeholder="Search users..."
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <select
-              className="border rounded-lg px-4 py-2"
-              value={roleFilter}
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="user">User</option>
-              <option value="spamanager">Spa Manager</option>
-            </select>
+    <div className="bg-gray-50 min-h-screen p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 flex items-center">
+              <Users className="mr-2 h-6 w-6 text-blue-600" />
+              Users Management
+            </h1>
+            <p className="text-gray-500 mt-1">Manage all users in the system</p>
           </div>
+          <button
+            onClick={() => setShowAddUserModal(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center transition duration-200 shadow-sm"
+          >
+            <UserPlus className="mr-2" size={20} />
+            Add New User
+          </button>
         </div>
 
-        <table className="w-full">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gender</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user, index) => (
-              <tr key={index}>
-                <td className="px-6 py-4 whitespace-nowrap">{user.fullName}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{user.email}</td>
-                <td className="px-6 py-4 whitespace-nowrap">{user.phone}</td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="px-2 inline-flex text-xs font-semibold rounded-full">
-                    {user.gender}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                  <button className="text-indigo-600 hover:text-indigo-900 mr-3">Edit</button>
-                  <button className="text-red-600 hover:text-red-900">Delete</button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border-l-4 border-green-500 rounded-lg flex items-start">
+            <CheckCircle className="h-5 w-5 text-green-500 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="font-medium text-green-800">Success!</h3>
+              <p className="text-green-700">{successMessage}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-lg flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-3 flex-shrink-0" />
+            <div>
+              <h3 className="font-medium text-red-800">Error</h3>
+              <p className="text-red-700">{error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Filters and Search */}
+        <div className="bg-white rounded-xl shadow-sm mb-6 border border-gray-100">
+          <div className="p-6 border-b border-gray-100">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-3 text-gray-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search by name, email, or phone..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <div className="md:w-64">
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <option value="all">All Roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="user">User</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Users Table */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw size={30} className="text-blue-500 animate-spin mr-3" />
+              <span className="text-gray-600">Loading users...</span>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {currentRecords.length > 0 ? (
+                    currentRecords.map((user, index) => (
+                      <tr key={user._id || index} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                          <div className="flex items-center">
+                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold mr-3">
+                              {user.firstname?.[0] || user.fullName?.[0] || 'U'}
+                            </div>
+                            {user.fullName}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                          <div className="flex items-center">
+                            <Mail className="h-4 w-4 text-gray-400 mr-2" />
+                            {user.email}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                          <div className="flex items-center">
+                            <Phone className="h-4 w-4 text-gray-400 mr-2" />
+                            {user.phone}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-3 py-1 inline-flex text-xs font-medium rounded-full items-center ${getRoleBadgeColor(user.role)}`}>
+                            <Shield className="h-3 w-3 mr-1" />
+                            {user.role}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                          <div className="flex items-center">
+                            <User className="h-4 w-4 text-gray-400 mr-2" />
+                            {user.gender}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                          <div className="flex space-x-2">
+                            <button className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition">
+                              <Edit size={16} />
+                            </button>
+                            <button className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition">
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="text-center py-12">
+                        <div className="flex flex-col items-center">
+                          <Users className="h-12 w-12 text-gray-300 mb-4" />
+                          <p className="text-gray-500 text-lg mb-1">No users found</p>
+                          <p className="text-gray-400 text-sm">Try adjusting your search criteria</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+          
+          {/* Pagination */}
+          {!loading && filteredUsers.length > 0 && (
+            <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center">
+              <div className="text-sm text-gray-500 mb-4 sm:mb-0">
+                Showing {indexOfFirstRecord + 1} to {Math.min(indexOfLastRecord, filteredUsers.length)} of {filteredUsers.length} users
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <button 
+                  onClick={goToPreviousPage} 
+                  disabled={currentPage === 1}
+                  className={`p-2 rounded-md border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                
+                <div className="flex space-x-1">
+                  {/* Display page numbers with ellipsis for many pages */}
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(number => {
+                      // Always show first page, last page, current page and pages around current
+                      return number === 1 || 
+                             number === totalPages || 
+                             (number >= currentPage - 1 && number <= currentPage + 1);
+                    })
+                    .map((number, index, array) => (
+                      <React.Fragment key={number}>
+                        {index > 0 && array[index - 1] !== number - 1 && (
+                          <span className="px-3 py-1 text-gray-400">...</span>
+                        )}
+                        <button
+                          onClick={() => paginate(number)}
+                          className={`px-3 py-1 rounded-md ${
+                            currentPage === number 
+                              ? 'bg-blue-600 text-white' 
+                              : 'text-gray-700 hover:bg-gray-100'
+                          }`}
+                        >
+                          {number}
+                        </button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                
+                <button 
+                  onClick={goToNextPage} 
+                  disabled={currentPage === totalPages}
+                  className={`p-2 rounded-md border ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                >
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Add User Modal */}
+      {showAddUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center">
+                <UserPlus className="mr-2 h-5 w-5 text-blue-600" />
+                Add New User
+              </h2>
+              <button
+                onClick={() => setShowAddUserModal(false)}
+                className="p-1.5 bg-gray-100 text-gray-600 hover:bg-gray-200 rounded-full transition"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="p-6">
+              <div className="space-y-4">
+                {/* Email */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-2 border ${formErrors.email ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                      placeholder="user@example.com"
+                      required
+                    />
+                  </div>
+                  {formErrors.email && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
+                  )}
+                </div>
+
+                {/* First Name & Last Name (two columns) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="firstname"
+                      value={formData.firstname}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-2 border ${formErrors.firstname ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                      placeholder="First name"
+                      required
+                    />
+                    {formErrors.firstname && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.firstname}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Last Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="lastname"
+                      value={formData.lastname}
+                      onChange={handleInputChange}
+                      className={`w-full px-4 py-2 border ${formErrors.lastname ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                      placeholder="Last name"
+                      required
+                    />
+                    {formErrors.lastname && (
+                      <p className="mt-1 text-sm text-red-600">{formErrors.lastname}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Full Name (auto-generated, disabled) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Full Name
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <UserCheck className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={formData.fullName}
+                      readOnly
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 bg-gray-50 rounded-lg"
+                      placeholder="Auto-generated from first and last name"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-gray-500">
+                    This field is auto-generated from first and last name
+                  </p>
+                </div>
+
+                {/* Phone */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Phone className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className={`w-full pl-10 pr-4 py-2 border ${formErrors.phone ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                      placeholder="e.g. 9602596759"
+                      required
+                    />
+                  </div>
+                  {formErrors.phone && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.phone}</p>
+                  )}
+                </div>
+
+                {/* Gender & Role (two columns) */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Gender
+                    </label>
+                    <select
+                      name="gender"
+                      value={formData.gender}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                    >
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Role
+                    </label>
+                    <select
+                      name="role"
+                      value={formData.role}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Field - Only in the Add User Modal Form */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Password <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Shield className="h-5 w-5 text-gray-400" />
+                  </div>
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleInputChange}
+                    className={`w-full pl-10 pr-4 py-2 border ${formErrors.password ? 'border-red-300 bg-red-50' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition`}
+                    placeholder="Minimum 6 characters"
+                    required
+                  />
+                </div>
+                {formErrors.password && (
+                  <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddUserModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition flex items-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="mr-2 h-4 w-4" />
+                      Create User
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

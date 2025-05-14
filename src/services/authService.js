@@ -1,47 +1,40 @@
+import axios from "axios";
 
-export async function loginWithEmail(email, password) {
-  const response = await fetch("http://localhost:5000/api/users/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ email, password }),
-  });
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(errorData.message || "Login failed");
+/**
+ * Login with either email or phone number.
+ * @param {Object} credentials - Login credentials.
+ * @param {string} credentials.identifier - Email or phone number.
+ * @param {string} credentials.password - Password.
+ */
+export async function loginWithEmail({ login, password }) {
+  try {
+    const response = await axios.post(`${BASE_URL}/users/login`, {
+      login,
+      password,
+    });
+
+    return response.data;
+  } catch (error) {
+    const message =
+      error.response?.data?.message || "Login failed. Please try again.";
+    throw new Error(message);
   }
-
-  const data = await response.json();
-
-
-
-  // Optional: console.log(data) to inspect the result
-  return {
-    name: `${data.firstname} ${data.lastname}`,
-    email: data.email,
-    role: data.role,
-    token: data.token,
-  };
 }
 
 
+
+
   
-  export async function sendOTP(mobile) {
-    console.log("Sending OTP to:", mobile);
-    return true; // Simulated success
-  }
-  
-  export async function verifyOTP(mobile, otp) {
-    if (mobile === "9876543210" && otp === "123456") {
-      return {
-        name: "Admin User",
-        mobile,
-        role: "admin",
-        token: "demo-admin-token",
-      };
-    }
-    throw new Error("Invalid OTP");
-  }
+// Keep existing OTP functions
+export async function sendOTP(mobile) {
+  const res = await axios.post(`${BASE_URL}/users/send-otp`, { mobile });
+  return res.data;
+}
+
+export async function verifyOTP(mobile, otp) {
+  const res = await axios.post(`${BASE_URL}/users/verify-otp`, { mobile, otp });
+  return res.data;
+}
   

@@ -1,22 +1,24 @@
-import React from 'react';
-import { NavLink } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  Briefcase, 
-  Building2, 
-  FileText, 
-  MessageSquare 
-} from 'lucide-react';
+import React from "react";
+import { NavLink } from "react-router-dom";
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Building2,
+  FileText,
+  MessageSquare,
+} from "lucide-react";
 
 const Sidebar = () => {
   const menuItems = [
-    { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/users', icon: Users, label: 'Users' },
-    { path: '/spas', icon: Building2, label: 'Spas' },
-    { path: '/jobs', icon: Briefcase, label: 'Jobs' },
-    { path: '/applications', icon: FileText, label: 'Job Applications' },
-    { path: '/messages', icon: MessageSquare, label: 'Messages' },
+    { path: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+    { path: "/users", icon: Users, label: "Users" },
+    { path: "/spas", icon: Building2, label: "Spas" },
+    { path: "/addSpa ", icon: Building2, label: "Add spa " },
+    { path: "/add-spa-job", icon: Building2, label: "Add jobs" },
+    { path: "/jobs", icon: Briefcase, label: "Jobs" },
+    { path: "/applications", icon: FileText, label: "Job Applications" },
+    { path: "/messages", icon: MessageSquare, label: "Messages" },
   ];
 
   return (
@@ -31,7 +33,9 @@ const Sidebar = () => {
             to={item.path}
             className={({ isActive }) =>
               `flex items-center px-6 py-3 transition-colors ${
-                isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800'
+                isActive
+                  ? "bg-gray-800 text-white"
+                  : "text-gray-300 hover:bg-gray-800"
               }`
             }
           >
