@@ -258,124 +258,117 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     return null;
   };
 
-  // Logo upload handler (simulated)
-  const handleLogoUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+// handle gallery upload
+const handleLogoUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  
+  const error = validateFile(file);
+  if (error) {
+    setError(error);
+    return;
+  }
+  
+  setIsLoading(true);
+  setError("");
+  
+  try {
+    const simulatedUpload = new Promise((resolve) => {
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 20;
+        setUploadProgress(prev => ({ ...prev, logo: progress }));
+        if (progress >= 100) {
+          clearInterval(interval);
+          const encodedFilename = encodeURIComponent(file.name);
+          resolve(`${BASE_URL}/uplaods/${encodedFilename}`);
+        }
+      }, 200);
+    });
     
-    const error = validateFile(file);
-    if (error) {
-      setError(error);
-      return;
+    const logoUrl = await simulatedUpload;
+    
+    setFormData(prev => ({
+      ...prev,
+      logo: logoUrl,
+    }));
+    
+    setSuccessMessage("Logo uploaded successfully");
+    setTimeout(() => setSuccessMessage(""), 3000);
+  } catch (err) {
+    setError("Logo upload failed");
+  } finally {
+    setIsLoading(false);
+    setTimeout(() => setUploadProgress(prev => ({ ...prev, logo: 0 })), 1000);
+  }
+};
+
+const handleGalleryUpload = async (e) => {
+  const files = Array.from(e.target.files);
+  if (files.length === 0) return;
+  
+  setIsLoading(true);
+  setError("");
+  
+  const newImages = [];
+  const failedUploads = [];
+  
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    
+    const validationError = validateFile(file);
+    if (validationError) {
+      failedUploads.push({ name: file.name, error: validationError });
+      continue;
     }
     
-    setIsLoading(true);
-    setError("");
-    
-    // Simulated upload - in a real app, this would be an actual API call
+    const uploadId = `gallery_${i}`;
     try {
-      // Simulate upload progress
       const simulatedUpload = new Promise((resolve) => {
         let progress = 0;
         const interval = setInterval(() => {
           progress += 20;
-          setUploadProgress(prev => ({ ...prev, logo: progress }));
+          setUploadProgress(prev => ({ ...prev, [uploadId]: progress }));
           if (progress >= 100) {
             clearInterval(interval);
-            resolve(`/api/placeholder/logo/${file.name}`);
+            const encodedFilename = encodeURIComponent(file.name);
+            resolve(`${BASE_URL}/uploads/${encodedFilename}`);
           }
         }, 200);
       });
       
-      const logoUrl = await simulatedUpload;
-      
-      setFormData(prev => ({
-        ...prev,
-        logo: logoUrl,
-      }));
-      
-      setSuccessMessage("Logo uploaded successfully");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      const imageUrl = await simulatedUpload;
+      newImages.push(imageUrl);
     } catch (err) {
-      setError("Logo upload failed");
+      failedUploads.push({ 
+        name: file.name, 
+        error: "Upload failed" 
+      });
     } finally {
-      setIsLoading(false);
-      setTimeout(() => setUploadProgress(prev => ({ ...prev, logo: 0 })), 1000);
+      setUploadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[uploadId];
+        return newProgress;
+      });
     }
-  };
-
-  // Gallery image upload handler (simulated)
-  const handleGalleryUpload = async (e) => {
-    const files = Array.from(e.target.files);
-    if (files.length === 0) return;
+  }
+  
+  if (newImages.length > 0) {
+    setFormData(prev => ({
+      ...prev,
+      galleryImages: [...(prev.galleryImages || []), ...newImages],
+    }));
     
-    setIsLoading(true);
-    setError("");
-    
-    const newImages = [];
-    const failedUploads = [];
-    
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      // Validate file
-      const validationError = validateFile(file);
-      if (validationError) {
-        failedUploads.push({ name: file.name, error: validationError });
-        continue;
-      }
-      
-      // Simulate upload progress
-      const uploadId = `gallery_${i}`;
-      try {
-        const simulatedUpload = new Promise((resolve) => {
-          let progress = 0;
-          const interval = setInterval(() => {
-            progress += 20;
-            setUploadProgress(prev => ({ ...prev, [uploadId]: progress }));
-            if (progress >= 100) {
-              clearInterval(interval);
-              resolve(`/api/placeholder/gallery/${file.name}`);
-            }
-          }, 200);
-        });
-        
-        const imageUrl = await simulatedUpload;
-        newImages.push(imageUrl);
-      } catch (err) {
-        failedUploads.push({ 
-          name: file.name, 
-          error: "Upload failed" 
-        });
-      } finally {
-        // Clear progress for this file
-        setUploadProgress(prev => {
-          const newProgress = { ...prev };
-          delete newProgress[uploadId];
-          return newProgress;
-        });
-      }
-    }
-    
-    // Update gallery with successfully uploaded images
-    if (newImages.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        galleryImages: [...(prev.galleryImages || []), ...newImages],
-      }));
-      
-      setSuccessMessage(`${newImages.length} image(s) uploaded successfully`);
-      setTimeout(() => setSuccessMessage(""), 3000);
-    }
-    
-    // Show errors for failed uploads
-    if (failedUploads.length > 0) {
-      setError(`Failed to upload ${failedUploads.length} image(s): ${failedUploads.map(f => f.name).join(", ")}`);
-    }
-    
-    setIsLoading(false);
-  };
-
+    setSuccessMessage(`${newImages.length} image(s) uploaded successfully`);
+    setTimeout(() => setSuccessMessage(""), 3000);
+  }
+  
+  if (failedUploads.length > 0) {
+    setError(`Failed to upload ${failedUploads.length} image(s): ${failedUploads.map(f => f.name).join(", ")}`);
+  }
+  
+  setIsLoading(false);
+};
   // Remove image from gallery
   const removeGalleryImage = (index) => {
     setFormData(prev => ({

@@ -215,7 +215,7 @@ const AddSpaForm = ({ onSuccess }) => {
   // Validate file 
   const validateFile = (file) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp','image/JPG'];
     
     if (file.size > MAX_SIZE) {
       return `File "${file.name}" exceeds 5MB size limit`;
@@ -292,6 +292,7 @@ const AddSpaForm = ({ onSuccess }) => {
     }
   };
 
+  
   // Remove image from gallery
   const removeGalleryImage = (index) => {
     // Remove from previews
