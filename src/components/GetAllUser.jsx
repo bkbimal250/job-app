@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import {
   Search, Plus, User, Mail, Phone, UserPlus, X,
   CheckCircle, AlertCircle, Users, RefreshCw, Shield,
-  Edit, Trash2, UserCheck, ChevronLeft, ChevronRight
+  Edit, Trash2, UserCheck
 } from "lucide-react";
 import axios from "axios";
 import { AuthContext } from "../auth/AuthContext";
@@ -18,10 +18,6 @@ const GetAllUser = () => {
   const [loading, setLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  
-  // Pagination states
-  const [currentPage, setCurrentPage] = useState(1);
-  const [recordsPerPage] = useState(15);
 
   // Form state for adding a new user
   const [formData, setFormData] = useState({
@@ -65,11 +61,6 @@ const GetAllUser = () => {
       return () => clearTimeout(timer);
     }
   }, [successMessage]);
-
-  // Reset to first page when search or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, roleFilter]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -220,29 +211,6 @@ const GetAllUser = () => {
     return matchesSearch && matchesRole;
   });
 
-  // Pagination logic
-  const indexOfLastRecord = currentPage * recordsPerPage;
-  const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-  const currentRecords = filteredUsers.slice(indexOfFirstRecord, indexOfLastRecord);
-  const totalPages = Math.ceil(filteredUsers.length / recordsPerPage);
-
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
-  // Go to previous page
-  const goToPreviousPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-  
-  // Go to next page
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
   // Get role badge color
   const getRoleBadgeColor = (role) => {
     switch (role.toLowerCase()) {
@@ -348,8 +316,8 @@ const GetAllUser = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentRecords.length > 0 ? (
-                    currentRecords.map((user, index) => (
+                  {filteredUsers.length > 0 ? (
+                    filteredUsers.map((user, index) => (
                       <tr key={user._id || index} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
                           <div className="flex items-center">
@@ -411,57 +379,11 @@ const GetAllUser = () => {
             </div>
           )}
           
-          {/* Pagination */}
+          {/* Showing total count of filtered records */}
           {!loading && filteredUsers.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center">
-              <div className="text-sm text-gray-500 mb-4 sm:mb-0">
-                Showing {indexOfFirstRecord + 1} to {Math.min(indexOfLastRecord, filteredUsers.length)} of {filteredUsers.length} users
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <button 
-                  onClick={goToPreviousPage} 
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-md border ${currentPage === 1 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                
-                <div className="flex space-x-1">
-                  {/* Display page numbers with ellipsis for many pages */}
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(number => {
-                      // Always show first page, last page, current page and pages around current
-                      return number === 1 || 
-                             number === totalPages || 
-                             (number >= currentPage - 1 && number <= currentPage + 1);
-                    })
-                    .map((number, index, array) => (
-                      <React.Fragment key={number}>
-                        {index > 0 && array[index - 1] !== number - 1 && (
-                          <span className="px-3 py-1 text-gray-400">...</span>
-                        )}
-                        <button
-                          onClick={() => paginate(number)}
-                          className={`px-3 py-1 rounded-md ${
-                            currentPage === number 
-                              ? 'bg-blue-600 text-white' 
-                              : 'text-gray-700 hover:bg-gray-100'
-                          }`}
-                        >
-                          {number}
-                        </button>
-                      </React.Fragment>
-                    ))}
-                </div>
-                
-                <button 
-                  onClick={goToNextPage} 
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-md border ${currentPage === totalPages ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-                >
-                  <ChevronRight size={18} />
-                </button>
+            <div className="px-6 py-4 border-t border-gray-100">
+              <div className="text-sm text-gray-500">
+                Showing all {filteredUsers.length} users
               </div>
             </div>
           )}
@@ -633,7 +555,7 @@ const GetAllUser = () => {
               </div>
 
               {/* Password Field - Only in the Add User Modal Form */}
-              <div>
+              <div className="mt-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Password <span className="text-red-500">*</span>
                 </label>

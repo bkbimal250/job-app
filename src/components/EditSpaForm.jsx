@@ -10,10 +10,10 @@ import {
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
 
 const ADDRESS_FIELDS = [
-  { key: "state" },
-  { key: "city"  },
-  { key: "district" },
-  { key: "pincode" }
+  { key: "state", required: true },
+  { key: "city", required: true },
+  { key: "district", required: true },
+  { key: "pincode", required: true }
 ];
 
 const INITIAL_FORM_DATA = {
@@ -95,15 +95,18 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
   const { id } = useParams(); // Get ID from URL if available
   const effectiveSpaId = spaId || id; // Use provided ID or URL parameter
   
-  const [formData, setFormData] = useState({...INITIAL_FORM_DATA});
+  const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
   const [formErrors, setFormErrors] = useState({ ...INITIAL_FORM_ERRORS });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({});
+  
+  // Add these new states for file handling
+  const [logoFile, setLogoFile] = useState(null);
+  const [galleryFiles, setGalleryFiles] = useState([]);
   const [spa, setSpa] = useState(null);
-
+  
   // Fetch spa data from API
   useEffect(() => {
     const fetchSpaData = async () => {
@@ -121,7 +124,6 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
           headers: { Authorization: `Bearer ${getToken()}` }
         });
         
-        console.log(response.data);
         // Process response data
         let allSpas = [];
         if (Array.isArray(response.data)) {
@@ -171,6 +173,22 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     
     fetchSpaData();
   }, [effectiveSpaId]);
+
+  // Clean up object URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      // Revoke all preview URLs to prevent memory leaks
+      if (formData.logo && formData.logo.startsWith('blob:')) {
+        URL.revokeObjectURL(formData.logo);
+      }
+      
+      formData.galleryImages.forEach(url => {
+        if (url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      });
+    };
+  }, []);
 
   // Input change handler
   const handleChange = (e) => {
@@ -242,7 +260,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     });
   };
 
-  // Validate file 
+  // Validate file
   const validateFile = (file) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
     const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp','image/JPG'];
@@ -258,131 +276,104 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     return null;
   };
 
-// handle gallery upload
-const handleLogoUpload = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  
-  const error = validateFile(file);
-  if (error) {
-    setError(error);
-    return;
-  }
-  
-  setIsLoading(true);
-  setError("");
-  
-  try {
-    const simulatedUpload = new Promise((resolve) => {
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += 20;
-        setUploadProgress(prev => ({ ...prev, logo: progress }));
-        if (progress >= 100) {
-          clearInterval(interval);
-          const encodedFilename = encodeURIComponent(file.name);
-          resolve(`${BASE_URL}/uplaods/${encodedFilename}`);
-        }
-      }, 200);
-    });
-    
-    const logoUrl = await simulatedUpload;
-    
-    setFormData(prev => ({
-      ...prev,
-      logo: logoUrl,
-    }));
-    
-    setSuccessMessage("Logo uploaded successfully");
-    setTimeout(() => setSuccessMessage(""), 3000);
-  } catch (err) {
-    setError("Logo upload failed");
-  } finally {
-    setIsLoading(false);
-    setTimeout(() => setUploadProgress(prev => ({ ...prev, logo: 0 })), 1000);
-  }
-};
-
-const handleGalleryUpload = async (e) => {
-  const files = Array.from(e.target.files);
-  if (files.length === 0) return;
-  
-  setIsLoading(true);
-  setError("");
-  
-  const newImages = [];
-  const failedUploads = [];
-  
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
+  // Logo upload handler
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
     
     const validationError = validateFile(file);
     if (validationError) {
-      failedUploads.push({ name: file.name, error: validationError });
-      continue;
+      setError(validationError);
+      return;
     }
     
-    const uploadId = `gallery_${i}`;
-    try {
-      const simulatedUpload = new Promise((resolve) => {
-        let progress = 0;
-        const interval = setInterval(() => {
-          progress += 20;
-          setUploadProgress(prev => ({ ...prev, [uploadId]: progress }));
-          if (progress >= 100) {
-            clearInterval(interval);
-            const encodedFilename = encodeURIComponent(file.name);
-            resolve(`${BASE_URL}/uploads/${encodedFilename}`);
-          }
-        }, 200);
-      });
-      
-      const imageUrl = await simulatedUpload;
-      newImages.push(imageUrl);
-    } catch (err) {
-      failedUploads.push({ 
-        name: file.name, 
-        error: "Upload failed" 
-      });
-    } finally {
-      setUploadProgress(prev => {
-        const newProgress = { ...prev };
-        delete newProgress[uploadId];
-        return newProgress;
-      });
-    }
-  }
-  
-  if (newImages.length > 0) {
+    // Store the actual file for later upload
+    setLogoFile(file);
+    
+    // Set a preview URL for display
+    const previewUrl = URL.createObjectURL(file);
     setFormData(prev => ({
       ...prev,
-      galleryImages: [...(prev.galleryImages || []), ...newImages],
+      logo: previewUrl, // This is just for display, not for sending to server
     }));
     
-    setSuccessMessage(`${newImages.length} image(s) uploaded successfully`);
+    setSuccessMessage("Logo ready for upload");
     setTimeout(() => setSuccessMessage(""), 3000);
-  }
-  
-  if (failedUploads.length > 0) {
-    setError(`Failed to upload ${failedUploads.length} image(s): ${failedUploads.map(f => f.name).join(", ")}`);
-  }
-  
-  setIsLoading(false);
-};
-  // Remove image from gallery
-  const removeGalleryImage = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      galleryImages: (prev.galleryImages || []).filter((_, i) => i !== index),
-    }));
   };
 
-  // Form validation
+  // Gallery image upload handler
+  const handleGalleryUpload = (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    
+    const validFiles = [];
+    const failedUploads = [];
+    const previewUrls = [];
+    
+    // Process each file
+    files.forEach(file => {
+      const validationError = validateFile(file);
+      if (validationError) {
+        failedUploads.push({ name: file.name, error: validationError });
+      } else {
+        validFiles.push(file);
+        previewUrls.push(URL.createObjectURL(file));
+      }
+    });
+    
+    // Store the actual files for later upload
+    setGalleryFiles(prev => [...prev, ...validFiles]);
+    
+    // Set preview URLs for display
+    setFormData(prev => ({
+      ...prev,
+      galleryImages: [...prev.galleryImages, ...previewUrls], // These are just for display
+    }));
+    
+    if (validFiles.length > 0) {
+      setSuccessMessage(`${validFiles.length} image(s) ready for upload`);
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+    
+    if (failedUploads.length > 0) {
+      setError(`${failedUploads.length} invalid file(s): ${failedUploads.map(f => f.name).join(", ")}`);
+    }
+  };
+
+  // Remove image from gallery
+  const removeGalleryImage = (index) => {
+    // Check if the image is a preview URL (blob) or an original URL
+    const imageUrl = formData.galleryImages[index];
+    
+    // Remove from previews in form data
+    setFormData(prev => ({
+      ...prev,
+      galleryImages: prev.galleryImages.filter((_, i) => i !== index),
+    }));
+    
+    // If it's a blob URL (new file), remove from galleryFiles array and revoke URL
+    if (imageUrl.startsWith('blob:')) {
+      // Find the index in galleryFiles by comparing preview URLs
+      const fileIndex = galleryFiles.findIndex((_, i) => {
+        const preview = URL.createObjectURL(galleryFiles[i]);
+        URL.revokeObjectURL(preview); // Clean up
+        return preview === imageUrl;
+      });
+      
+      if (fileIndex !== -1) {
+        setGalleryFiles(prev => prev.filter((_, i) => i !== fileIndex));
+      }
+      
+      // Revoke the URL to prevent memory leaks
+      URL.revokeObjectURL(imageUrl);
+    }
+  };
+
+  // Basic form validation
   const validateForm = () => {
     const errors = { ...INITIAL_FORM_ERRORS };
     let isValid = true;
     
-    // Basic validation
     if (!formData.name?.trim()) {
       errors.name = "Spa name is required";
       isValid = false;
@@ -391,63 +382,10 @@ const handleGalleryUpload = async (e) => {
     if (!formData.phone?.trim()) {
       errors.phone = "Phone number is required";
       isValid = false;
-    } else if (!/^\+?[0-9]{10,15}$/.test(formData.phone.replace(/\s+/g, ''))) {
-      errors.phone = "Invalid phone number format";
-      isValid = false;
     }
     
     if (!formData.email?.trim()) {
       errors.email = "Email is required";
-      isValid = false;
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Invalid email format";
-      isValid = false;
-    }
-    
-    // Website validation (optional)
-    if (formData.website?.trim() && !/^https?:\/\/[^\s$.?#].[^\s]*$/.test(formData.website)) {
-      errors.website = "Invalid website URL";
-      isValid = false;
-    }
-    
-    // Full address validation
-    if (!formData.fullAddress?.trim()) {
-      errors.fullAddress = "Full address is required";
-      isValid = false;
-    }
-    
-    ADDRESS_FIELDS.forEach(field => {
-      if (field.required && !formData.address?.[field.key]?.trim()) {
-        errors.address[field.key] = `${field.key.charAt(0).toUpperCase() + field.key.slice(1)} is required`;
-        isValid = false;
-      }
-    });
-    
-    // Coordinates validation
-    if (formData.geolocation?.coordinates[0] === null) {
-      errors.geolocation.coordinates[0] = "Longitude is required";
-      isValid = false;
-    } else if (isNaN(parseFloat(formData.geolocation?.coordinates[0]))) {
-      errors.geolocation.coordinates[0] = "Longitude must be a valid number";
-      isValid = false;
-    }
-    
-    if (formData.geolocation?.coordinates[1] === null) {
-      errors.geolocation.coordinates[1] = "Latitude is required";
-      isValid = false;
-    } else if (isNaN(parseFloat(formData.geolocation?.coordinates[1]))) {
-      errors.geolocation.coordinates[1] = "Latitude must be a valid number";
-      isValid = false;
-    }
-    
-    // Hours validation
-    if (!formData.openingHours?.trim()) {
-      errors.openingHours = "Opening hours are required";
-      isValid = false;
-    }
-    
-    if (!formData.closingHours?.trim()) {
-      errors.closingHours = "Closing hours are required";
       isValid = false;
     }
     
@@ -466,53 +404,81 @@ const handleGalleryUpload = async (e) => {
     }
     
     // Validate form
-   
+    if (!validateForm()) {
+      setError("Please fix the errors in the form before submitting");
+      return;
+    }
     
     setIsSubmitting(true);
     setError("");
     
     try {
-      // Format coordinates as numbers
-      const longitude = parseFloat(formData.geolocation?.coordinates[0] || 0);
-      const latitude = parseFloat(formData.geolocation?.coordinates[1] || 0);
+      // Create FormData object for multipart/form-data submission
+      const formDataObj = new FormData();
       
-      // Create payload to match backend structure
-      const payload = {
-        ...formData,
-        address: {
-          city: formData.address?.city || "",
-          state: formData.address?.state || "",
-          district: formData.address?.district || "",
-          pincode: formData.address?.pincode || ""
-        },
-        geolocation: {
-          type: "Point",
-          coordinates: [longitude, latitude]
-        }
-      };
+      // Add all the basic text fields
+      formDataObj.append('name', formData.name);
+      formDataObj.append('fullAddress', formData.fullAddress);
+      formDataObj.append('phone', formData.phone);
+      formDataObj.append('email', formData.email);
+      formDataObj.append('website', formData.website || '');
+      formDataObj.append('rating', formData.rating);
+      formDataObj.append('reviews', formData.reviews);
+      formDataObj.append('openingHours', formData.openingHours);
+      formDataObj.append('closingHours', formData.closingHours);
+      formDataObj.append('isActive', formData.isActive.toString());
+      formDataObj.append('googleMap', formData.googleMap || '');
+      formDataObj.append('direction', formData.direction || '');
+      
+      // Add nested address fields DIRECTLY
+      formDataObj.append('address[city]', formData.address.city);
+      formDataObj.append('address[state]', formData.address.state);
+      formDataObj.append('address[district]', formData.address.district);
+      formDataObj.append('address[pincode]', formData.address.pincode);
+      
+      // Add geolocation fields DIRECTLY
+      formDataObj.append('geolocation[type]', 'Point');
+      
+      const longitude = parseFloat(formData.geolocation.coordinates[0]);
+      const latitude = parseFloat(formData.geolocation.coordinates[1]);
+      
+      formDataObj.append('geolocation[coordinates][0]', longitude);
+      formDataObj.append('geolocation[coordinates][1]', latitude);
+      
+      // Add logo file if it exists
+      if (logoFile) {
+        formDataObj.append('logo', logoFile);
+      }
+      
+      // Add gallery files if they exist
+      if (galleryFiles.length > 0) {
+        galleryFiles.forEach(file => {
+          formDataObj.append('galleryImages', file);
+        });
+      }
       
       // Get authentication token
       const token = getToken();
       
-      // Send update request using PUT method
-      const response = await axios.put(`${BASE_URL}/spas/spa/${effectiveSpaId}`, payload, {
+      // Send data to the API using axios with authorization
+      const response = await axios.put(`${BASE_URL}/spas/spa/${effectiveSpaId}`, formDataObj, {
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'multipart/form-data',
           'Authorization': `Bearer ${token}`
         }
       });
       
-      // Success handling
-      setSuccessMessage("Spa updated successfully!");
-      
-      // Call success callback with updated data
+      // Handle success
+      setSuccessMessage("Spa has been updated successfully!");
+      alert("Your spa has been updated successfully!");
+
+      // Call success callback with the updated spa data
       if (onSuccess) {
-        onSuccess(response.data || formData);
+        onSuccess(response.data);
       }
       
     } catch (err) {
-      console.error("Form update error:", err);
-      
+      console.error("Form submission error:", err);
       // Handle Axios error response
       if (err.response) {
         const errorMessage = err.response.data.message || err.response.data.error || 'Failed to update spa';
@@ -535,8 +501,6 @@ const handleGalleryUpload = async (e) => {
           <div className="h-4 bg-gray-200 rounded w-1/3 mx-auto mb-6"></div>
           <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-4"></div>
           <div className="h-4 bg-gray-200 rounded w-full max-w-2xl mx-auto mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-full max-w-2xl mx-auto mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3 max-w-2xl mx-auto"></div>
         </div>
         <p className="mt-6 text-gray-500">Loading spa data...</p>
       </div>
@@ -585,367 +549,237 @@ const handleGalleryUpload = async (e) => {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6 space-y-8">
+        <h1 className="text-2xl font-bold text-center">Edit Spa: {formData.name}</h1>
+
         {/* Basic Info Section */}
         <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Phone className="mr-2 h-5 w-5 text-blue-500" />
-            Basic Information
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">Basic Information</h3>
           <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <InputField 
-                label="Spa Name" 
-                name="name" 
-                value={formData.name} 
-                onChange={handleChange} 
-                required 
-                error={formErrors.name}
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Phone" 
-                name="phone" 
-                type="tel" 
-                value={formData.phone} 
-                icon={<Phone size={18} />} 
-                onChange={handleChange} 
-                required 
-                error={formErrors.phone}
-                placeholder="+91 9876543210"
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Email" 
-                name="email" 
-                type="email" 
-                value={formData.email} 
-                icon={<Mail size={18} />} 
-                onChange={handleChange} 
-                required 
-                error={formErrors.email}
-                placeholder="spa@example.com"
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Website" 
-                name="website" 
-                type="url" 
-                value={formData.website} 
-                icon={<Globe size={18} />} 
-                onChange={handleChange} 
-                error={formErrors.website}
-                placeholder="https://www.example.com"
-              />
-            </div>
+            <InputField 
+              label="Spa Name" 
+              name="name" 
+              value={formData.name} 
+              onChange={handleChange} 
+              required 
+              error={formErrors.name}
+            />
+            <InputField 
+              label="Phone" 
+              name="phone" 
+              type="tel" 
+              value={formData.phone} 
+              onChange={handleChange} 
+              required 
+              error={formErrors.phone}
+            />
+            <InputField 
+              label="Email" 
+              name="email" 
+              type="email" 
+              value={formData.email} 
+              onChange={handleChange} 
+              required 
+              error={formErrors.email}
+            />
+            <InputField 
+              label="Website" 
+              name="website" 
+              type="url" 
+              value={formData.website} 
+              onChange={handleChange} 
+            />
           </div>
         </div>
 
-        {/* Reviews fields */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Star className="mr-2 h-5 w-5 text-yellow-500" />
-            Rating & Reviews
-          </h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <InputField
-                label="Rating (0-5)"
-                name="rating"
-                type="number"
-                min="0"
-                max="5"
-                step="0.1"
-                value={formData.rating}
-                onChange={handleChange}
-                placeholder="e.g. 4.5"
-                icon={<Star size={18} />}
-              />
-            </div>
-            <div>
-              <InputField
-                label="Number of Reviews"
-                name="reviews"
-                type="number"
-                min="0"
-                value={formData.reviews}
-                onChange={handleChange}
-                placeholder="e.g. 175"
-                icon={<MessageSquare size={18} />}
-              />
-            </div>
-          </div>
-        </div>  
-
         {/* Address Section */}
         <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <MapPin className="mr-2 h-5 w-5 text-red-500" />
-            Address
-          </h3>
-          <div>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">Address & Location</h3>
+          <div className="mb-4">
             <InputField 
               label="Full Address" 
               name="fullAddress" 
               value={formData.fullAddress} 
-              icon={<MapPin size={18} />} 
               onChange={handleChange} 
-              required 
-              error={formErrors.fullAddress}
-              placeholder="Complete address with landmarks"
+              required
             />
           </div>
-          <div className="grid md:grid-cols-2 gap-6 mt-4">
+          <div className="grid md:grid-cols-2 gap-4">
             {ADDRESS_FIELDS.map((field, index) => (
-              <div key={`address-field-${index}-${field.key}`}>
-                <InputField
-                  label={field.key.charAt(0).toUpperCase() + field.key.slice(1)}
-                  name={`address.${field.key}`}
-                  value={formData.address?.[field.key]}
-                  onChange={handleChange}
-                  required={field.required}
-                  error={formErrors.address?.[field.key]}
-                />
-              </div>
+              <InputField
+                key={`address-${field.key}`}
+                label={field.key.charAt(0).toUpperCase() + field.key.slice(1)}
+                name={`address.${field.key}`}
+                value={formData.address?.[field.key]}
+                onChange={handleChange}
+                required={field.required}
+                error={formErrors.address?.[field.key]}
+              />
             ))}
           </div>
         </div>
 
-        {/* Location Info */}
+        {/* Coordinates Section */}
         <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Map className="mr-2 h-5 w-5 text-green-500" />
-            Location Details
-          </h3>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">Coordinates & Operating Hours</h3>
           <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <InputField 
-                label="Longitude" 
-                type="number" 
-                step="any" 
-                value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
-                onChange={(e) => handleCoordinatesChange(0, e.target.value)} 
-                placeholder="e.g. 76.2455"
-                required 
-                error={formErrors.geolocation?.coordinates?.[0]}
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Latitude" 
-                type="number" 
-                step="any" 
-                value={formData.geolocation?.coordinates?.[1] === null ? "" : formData.geolocation?.coordinates?.[1]} 
-                onChange={(e) => handleCoordinatesChange(1, e.target.value)} 
-                placeholder="e.g. 9.9674"
-                required 
-                error={formErrors.geolocation?.coordinates?.[1]}
-              />
-            </div>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6 mt-4">
-            <div>
-              <InputField 
-                label="Google Map Link" 
-                name="googleMap" 
-                value={formData.googleMap} 
-                icon={<Map size={18} />} 
-                onChange={handleChange} 
-                placeholder="https://goo.gl/maps/example"
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Directions" 
-                name="direction" 
-                value={formData.direction} 
-                icon={<Compass size={18} />} 
-                onChange={handleChange} 
-                placeholder="Landmark directions to find the spa"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Timings and Logo */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Clock className="mr-2 h-5 w-5 text-amber-500" />
-            Operating Hours & Branding
-          </h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <InputField 
-                label="Opening Hours" 
-                name="openingHours" 
-                value={formData.openingHours} 
-                icon={<Clock size={18} />} 
-                onChange={handleChange} 
-                placeholder="e.g. 09:30 AM"
-              />
-            </div>
-            <div>
-              <InputField 
-                label="Closing Hours" 
-                name="closingHours" 
-                value={formData.closingHours} 
-                icon={<Clock size={18} />} 
-                onChange={handleChange} 
-                placeholder="e.g. 08:30 PM"
-              />
-            </div>
-          </div>
-
-          {/* Logo Upload */}
-          <div className="mt-6">
-            <label className="block text-sm font-medium mb-1">Logo Image</label>
-            <div className="flex items-stretch">
-              <div className="flex-grow">
-                {formData.logo ? (
-                  <div className="relative p-1 border rounded-l-md bg-gray-50 flex items-center">
-                    <img src={formData.logo} alt="Logo" className="h-10 w-auto mr-2" />
-                    <span className="text-sm text-gray-500 truncate">{formData.logo.split('/').pop()}</span>
-                    <button 
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, logo: "" }))}
-                      className="ml-auto bg-red-50 text-red-500 p-1 rounded-full hover:bg-red-100 transition-colors"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex flex-grow cursor-pointer">
-                    <div className="relative overflow-hidden rounded-l-md border border-gray-300 bg-white px-3 py-2 w-full flex items-center">
-                      <Upload size={18} className="text-gray-400 mr-2" />
-                      <span className="text-gray-500">Choose a logo image...</span>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={handleLogoUpload} 
-                        className="absolute inset-0 opacity-0 cursor-pointer" 
-                      />
-                    </div>
-                  </label>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const fileInput = document.createElement('input');
-                  fileInput.type = 'file';
-                  fileInput.accept = 'image/*';
-                  fileInput.onchange = handleLogoUpload;
-                  fileInput.click();
-                }}
-                disabled={isLoading}
-                className={`px-4 bg-blue-500 text-white rounded-r-md flex items-center ${
-                  isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'
-                }`}
-              >
-                {uploadProgress.logo > 0 && uploadProgress.logo < 100 ? (
-                  <>
-                    <Loader className="animate-spin h-4 w-4 mr-2" />
-                    <span>{uploadProgress.logo}%</span>
-                  </>
-                ) : (
-                  <ImagePlus size={18} />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Gallery Section */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <ImagePlus className="mr-2 h-5 w-5 text-purple-500" />
-            Gallery Images
-          </h3>
-          
-          <div className="border-2 border-dashed border-gray-300 rounded-md p-6 text-center">
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              onChange={handleGalleryUpload}
-              className="hidden"
-              id="gallery-upload"
+            <InputField 
+              label="Longitude" 
+              type="number" 
+              step="any" 
+              value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
+              onChange={(e) => handleCoordinatesChange(0, e.target.value)} 
             />
-            <label htmlFor="gallery-upload" className="cursor-pointer">
-              <Upload className="mx-auto h-12 w-12 text-gray-400" />
-              <p className="mt-2 text-sm text-gray-500">
-                Click to upload gallery images or drag and drop
-              </p>
-              <p className="text-xs text-gray-400">
-                JPEG, PNG, GIF, WEBP up to 5MB each
-              </p>
-            </label>
+            <InputField 
+              label="Latitude" 
+              type="number" 
+              step="any" 
+              value={formData.geolocation?.coordinates?.[1] === null ? "" : formData.geolocation?.coordinates?.[1]} 
+              onChange={(e) => handleCoordinatesChange(1, e.target.value)} 
+            />
+            <InputField 
+              label="Opening Hours" 
+              name="openingHours" 
+              value={formData.openingHours} 
+              onChange={handleChange} 
+            />
+            <InputField 
+              label="Closing Hours" 
+              name="closingHours" 
+              value={formData.closingHours} 
+              onChange={handleChange} 
+            />
           </div>
-          
-          {/* Gallery Preview */}
-          {formData.galleryImages?.length > 0 && (
-            <div className="mt-6">
-              <h4 className="text-md font-medium mb-2">Gallery Preview</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                {formData.galleryImages.map((img, index) => (
-                  <div key={`gallery-img-${index}`} className="relative group">
-                    <img 
-                      src={img} 
-                      alt={`Gallery ${index + 1}`} 
-                      className="h-32 w-full object-cover rounded-md"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeGalleryImage(index)}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X size={16} />
-                    </button>
-                  </div>
-                ))}
+        </div>
+
+        {/* Logo Upload Section - Enhanced Design */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">Spa Logo</h3>
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            {formData.logo ? (
+              <div className="flex items-center">
+                <div className="h-16 w-16 bg-white border border-gray-200 rounded-md p-1 flex-shrink-0 mr-4">
+                  <img 
+                    src={formData.logo} 
+                    alt="Logo Preview" 
+                    className="h-full w-full object-contain" 
+                  />
+                </div>
+                <div className="flex-grow">
+                  <h4 className="text-sm font-medium text-gray-700">Logo Image</h4>
+                  <p className="text-xs text-gray-500 mt-1">Click remove to change the logo</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => {
+                    if (formData.logo.startsWith('blob:')) URL.revokeObjectURL(formData.logo);
+                    setFormData(prev => ({ ...prev, logo: "" }));
+                    setLogoFile(null);
+                  }}
+                  className="p-1.5 bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                >
+                  <X size={18} />
+                </button>
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-4 border-2 border-dashed border-gray-300 rounded-lg">
+                <ImagePlus className="h-12 w-12 text-gray-400 mb-3" />
+                <div className="text-center">
+                  <label className="cursor-pointer">
+                    <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
+                      Choose Logo Image
+                    </span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={handleLogoUpload} 
+                    />
+                  </label>
+                  <p className="text-sm text-gray-500 mt-2">PNG, JPG, GIF up to 5MB</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Gallery Images Section - Enhanced Design */}
+        <div>
+          <h3 className="text-lg font-semibold mb-4 text-gray-700">Gallery Images</h3>
           
-          {/* Upload Progress Indicators */}
-          {Object.entries(uploadProgress).filter(([key]) => key.startsWith('gallery_')).length > 0 && (
-            <div className="mt-4 space-y-2">
-              <h4 className="text-sm font-medium">Uploading Images...</h4>
-              {Object.entries(uploadProgress)
-                .filter(([key]) => key.startsWith('gallery_'))
-                .map(([key, progress]) => (
-                  <div key={key} className="flex items-center">
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full" 
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                    <span className="ml-2 text-xs text-gray-500">{progress}%</span>
-                  </div>
-                ))}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            {/* Upload control */}
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-4">
+              <label htmlFor="gallery-upload" className="cursor-pointer">
+                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                <p className="text-sm font-medium text-gray-700 mb-1">
+                  Upload Gallery Images
+                </p>
+                <p className="text-xs text-gray-500 mb-3">
+                  JPEG, PNG, GIF, WEBP up to 5MB each
+                </p>
+                <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
+                  Select Images
+                </span>
+                <input
+                  id="gallery-upload"
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleGalleryUpload}
+                  className="hidden"
+                />
+              </label>
             </div>
-          )}
+            
+            {/* Gallery Preview */}
+            {formData.galleryImages?.length > 0 && (
+              <div>
+                <h4 className="text-sm font-medium mb-3 text-gray-700 flex items-center">
+                  Gallery Preview ({formData.galleryImages.length} images)
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {formData.galleryImages.map((img, index) => (
+                    <div 
+                      key={`gallery-img-${index}`} 
+                      className="relative group overflow-hidden rounded-lg border border-gray-200"
+                    >
+                      <div className="aspect-w-1 aspect-h-1">
+                        <img 
+                          src={img} 
+                          alt={`Gallery ${index + 1}`} 
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryImage(index)}
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                        title="Remove image"
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Active Status */}
-        <div>
-          <div className="flex items-center">
-            <input
-              id="is-active"
-              type="checkbox"
-              name="isActive"
-              checked={formData.isActive}
-              onChange={handleChange}
-              className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-            />
-            <label htmlFor="is-active" className="ml-2 block text-sm text-gray-700">
-              Spa is currently active and in business
-            </label>
-          </div>
+        <div className="flex items-center">
+          <input
+            id="is-active"
+            type="checkbox"
+            name="isActive"
+            checked={formData.isActive}
+            onChange={handleChange}
+            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+          />
+          <label htmlFor="is-active" className="ml-2 block text-sm text-gray-700">
+            Spa is currently active and in business
+          </label>
         </div>
 
         {/* Form Controls */}
@@ -956,7 +790,7 @@ const handleGalleryUpload = async (e) => {
               window.location.href = "/spa"; // Redirect to spa route
             }}
             disabled={isSubmitting}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
           >
             Cancel
           </button>
@@ -965,7 +799,7 @@ const handleGalleryUpload = async (e) => {
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center"
+            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex items-center"
           >
             {isSubmitting ? (
               <>
