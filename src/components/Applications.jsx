@@ -154,6 +154,7 @@ const Applications = () => {
           },
         }
       );
+      console.log(response.data);
 
       if (response.status === 200) {
         // Update the application status in our local state
@@ -191,7 +192,7 @@ const Applications = () => {
     
     try {
       const response = await axios.delete(
-        `${BASE_URL}/application/admin/applications/${applicationId}`,
+        `${BASE_URL}/application/user/applications/${applicationId}`,
         {
           headers: {
             'Content-Type': 'application/json',
@@ -343,9 +344,9 @@ const Applications = () => {
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody style={{ textAlign: 'center',border: '2px solid #000' }}>
             {filteredApplications.length === 0 ? (
-              <tr>
+              <tr >
                 <td colSpan="9" className="no-data">
                   No applications found matching the filter criteria
                 </td>
@@ -354,7 +355,7 @@ const Applications = () => {
               filteredApplications.map((application) => {
                 const applicant = application.candidate || application.guestInfo;
                 return (
-                  <tr key={application._id}>
+                  <tr  key={application._id } style={{ textAlign: 'center',border: '1px solid #000' }}>
                     <td>
                       <strong>Spa Name:</strong>
                       

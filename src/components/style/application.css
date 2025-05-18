@@ -480,3 +480,9 @@
   background-color: #ffb3b3;
   cursor: not-allowed;
 }
+
+td{
+  border: 2px solid rgb(118, 123, 129);
+  padding: 8px;
+
+}

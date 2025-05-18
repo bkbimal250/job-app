@@ -36,6 +36,7 @@ const AddSpaJobForm = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState(1);
+  const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
   // Prepare auth headers with token
 
@@ -45,10 +46,11 @@ const AddSpaJobForm = () => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        
         const headers = getAuthHeaders();
         
         // Fetch spas
-        const spasResponse = await fetch("http://localhost:5000/api/v1/spas/spaall/", {
+        const spasResponse = await fetch(`${BASE_URL}/spas/spaall`, {
           headers
         });
         
@@ -60,7 +62,7 @@ const AddSpaJobForm = () => {
         setSpas(spasData);
         
         // Fetch enum values
-        const enumsResponse = await fetch("http://localhost:5000/api/v1/enums", {
+        const enumsResponse = await fetch(`${BASE_URL}/enums`, {
           headers
         });
         
@@ -103,7 +105,7 @@ const AddSpaJobForm = () => {
     try {
       const headers = getAuthHeaders();
       
-      const response = await fetch("http://localhost:5000/api/v1/spajobs", {
+      const response = await fetch(`${BASE_URL}/spajobs`, {
         method: "POST",
         headers,
         body: JSON.stringify(formData),
