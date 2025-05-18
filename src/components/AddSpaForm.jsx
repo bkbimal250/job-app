@@ -7,7 +7,7 @@ import {
   FileImage, Info, ChevronDown, Briefcase
 } from "lucide-react";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api/v1";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const ADDRESS_FIELDS = [
   { key: "state", required: true },

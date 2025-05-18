@@ -34,6 +34,10 @@ const Applications = () => {
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
+  
+  // Deletion state
+  const [deletingApplication, setDeletingApplication] = useState(false);
+  const [deleteConfirmationId, setDeleteConfirmationId] = useState(null);
 
   // CSV Headers configuration
   const csvHeaders = [
@@ -176,6 +180,49 @@ const Applications = () => {
     }
   };
 
+  // Handle application deletion
+  const deleteApplication = async (applicationId) => {
+    if (!applicationId) {
+      setError("Cannot delete: Application ID is missing");
+      return;
+    }
+    
+    setDeletingApplication(true);
+    
+    try {
+      const response = await axios.delete(
+        `${BASE_URL}/application/admin/applications/${applicationId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${getToken()}`,
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        // Remove the deleted application from our local state
+        setApplications(prevApplications => {
+          if (!prevApplications) return [];
+          
+          return prevApplications.filter(app => 
+            app && app._id !== applicationId
+          );
+        });
+        
+        // Clear delete confirmation
+        setDeleteConfirmationId(null);
+      } else {
+        throw new Error('Failed to delete application');
+      }
+    } catch (error) {
+      setError(error.message || 'An error occurred while deleting application');
+      console.error('Error deleting application:', error);
+    } finally {
+      setDeletingApplication(false);
+    }
+  };
+
   // Open status update modal
   const openStatusUpdateModal = (application) => {
     setSelectedApplication(application);
@@ -184,6 +231,16 @@ const Applications = () => {
   // Close status update modal
   const closeStatusUpdateModal = () => {
     setSelectedApplication(null);
+  };
+  
+  // Function to show delete confirmation
+  const showDeleteConfirmation = (applicationId) => {
+    setDeleteConfirmationId(applicationId);
+  };
+
+  // Function to hide delete confirmation
+  const hideDeleteConfirmation = () => {
+    setDeleteConfirmationId(null);
   };
 
   // Prepare data for CSV export
@@ -277,8 +334,8 @@ const Applications = () => {
         <table className="applications-table">
           <thead>
             <tr>
-              <th>Job Title</th>
-              <th>Spa Name</th>
+             
+              <th>Job Information</th>
               <th>Applicant Informations</th>
               <th>Resume</th>
               <th>Status</th>
@@ -298,8 +355,6 @@ const Applications = () => {
                 const applicant = application.candidate || application.guestInfo;
                 return (
                   <tr key={application._id}>
-
-                    
                     <td>
                       <strong>Spa Name:</strong>
                       
@@ -330,12 +385,43 @@ const Applications = () => {
                     </td>
                     <td>{formatDate(application.appliedAt)}</td>
                     <td>
-                      <button
-                        onClick={() => openStatusUpdateModal(application)}
-                        className="update-status-button"
-                      >
-                        Update Status
-                      </button>
+                      <div className="action-buttons">
+                        <button
+                          onClick={() => openStatusUpdateModal(application)}
+                          className="update-status-button"
+                        >
+                          Update Status
+                        </button>
+                        
+                        {/* New Delete Button */}
+                        {deleteConfirmationId === application._id ? (
+                          <div className="delete-confirmation">
+                            <p>Are you sure?</p>
+                            <div className="confirmation-buttons">
+                              <button 
+                                onClick={() => deleteApplication(application._id)}
+                                className="confirm-delete-button"
+                                disabled={deletingApplication}
+                              >
+                                {deletingApplication ? 'Deleting...' : 'Yes, Delete'}
+                              </button>
+                              <button 
+                                onClick={hideDeleteConfirmation}
+                                className="cancel-delete-button"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => showDeleteConfirmation(application._id)}
+                            className="delete-button"
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
