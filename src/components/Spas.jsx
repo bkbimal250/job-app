@@ -93,7 +93,7 @@ const Spas = () => {
 
   // Navigate to Add Spa page
   const handleAddSpa = () => {
-    navigate('/add-spa');
+    navigate('addSpa');
   };
 
   // Navigate to Edit Spa page

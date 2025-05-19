@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { getToken } from "../utils/getToken";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { 
   Upload, MapPin, Clock, Mail, Phone, Globe, ImagePlus, Map, Compass,
   AlertCircle, CheckCircle, Loader, X, Star, MessageSquare
@@ -50,7 +50,7 @@ const INITIAL_FORM_ERRORS = {
   geolocation: { coordinates: ["", ""] },
 };
 
-// Simplified InputField component
+// Input Field Component
 const InputField = ({ 
   label, 
   name, 
@@ -93,6 +93,7 @@ const InputField = ({
 
 const EditSpaForm = ({ spaId, onSuccess }) => {
   const { id } = useParams(); // Get ID from URL if available
+  const navigate = useNavigate(); // For navigation
   const effectiveSpaId = spaId || id; // Use provided ID or URL parameter
   
   const [formData, setFormData] = useState({ ...INITIAL_FORM_DATA });
@@ -102,12 +103,17 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
   const [successMessage, setSuccessMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Add these new states for file handling
+  // File handling states
   const [logoFile, setLogoFile] = useState(null);
   const [galleryFiles, setGalleryFiles] = useState([]);
   const [spa, setSpa] = useState(null);
+  // Track images to remove
+  const [imagesToRemove, setImagesToRemove] = useState({
+    logo: false,
+    gallery: []
+  });
   
-  // Fetch spa data from API
+  // Fetch spa data
   useEffect(() => {
     const fetchSpaData = async () => {
       if (!effectiveSpaId) {
@@ -118,10 +124,17 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
       
       try {
         setIsLoading(true);
+        const token = getToken();
+        
+        if (!token) {
+          setError("Authorization token not found. Please log in again.");
+          setIsLoading(false);
+          return;
+        }
         
         // Fetch all spas and find the one we need
         const response = await axios.get(`${BASE_URL}/spas/spaall/`, {
-          headers: { Authorization: `Bearer ${getToken()}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
         
         // Process response data
@@ -174,7 +187,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     fetchSpaData();
   }, [effectiveSpaId]);
 
-  // Clean up object URLs when component unmounts
+  // Clean up blob URLs when component unmounts
   useEffect(() => {
     return () => {
       // Revoke all preview URLs to prevent memory leaks
@@ -263,7 +276,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
   // Validate file
   const validateFile = (file) => {
     const MAX_SIZE = 5 * 1024 * 1024; // 5MB
-    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp','image/JPG'];
+    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'image/JPG'];
     
     if (file.size > MAX_SIZE) {
       return `File "${file.name}" exceeds 5MB size limit`;
@@ -294,7 +307,13 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     const previewUrl = URL.createObjectURL(file);
     setFormData(prev => ({
       ...prev,
-      logo: previewUrl, // This is just for display, not for sending to server
+      logo: previewUrl
+    }));
+
+    // Reset logo removal flag since we're uploading a new one
+    setImagesToRemove(prev => ({
+      ...prev,
+      logo: false
     }));
     
     setSuccessMessage("Logo ready for upload");
@@ -327,7 +346,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     // Set preview URLs for display
     setFormData(prev => ({
       ...prev,
-      galleryImages: [...prev.galleryImages, ...previewUrls], // These are just for display
+      galleryImages: [...prev.galleryImages, ...previewUrls]
     }));
     
     if (validFiles.length > 0) {
@@ -340,40 +359,12 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     }
   };
 
-  // Remove image from gallery
-  const removeGalleryImage = (index) => {
-    // Check if the image is a preview URL (blob) or an original URL
-    const imageUrl = formData.galleryImages[index];
-    
-    // Remove from previews in form data
-    setFormData(prev => ({
-      ...prev,
-      galleryImages: prev.galleryImages.filter((_, i) => i !== index),
-    }));
-    
-    // If it's a blob URL (new file), remove from galleryFiles array and revoke URL
-    if (imageUrl.startsWith('blob:')) {
-      // Find the index in galleryFiles by comparing preview URLs
-      const fileIndex = galleryFiles.findIndex((_, i) => {
-        const preview = URL.createObjectURL(galleryFiles[i]);
-        URL.revokeObjectURL(preview); // Clean up
-        return preview === imageUrl;
-      });
-      
-      if (fileIndex !== -1) {
-        setGalleryFiles(prev => prev.filter((_, i) => i !== fileIndex));
-      }
-      
-      // Revoke the URL to prevent memory leaks
-      URL.revokeObjectURL(imageUrl);
-    }
-  };
-
-  // Basic form validation
+  // Form validation
   const validateForm = () => {
     const errors = { ...INITIAL_FORM_ERRORS };
     let isValid = true;
     
+    // Required fields validation
     if (!formData.name?.trim()) {
       errors.name = "Spa name is required";
       isValid = false;
@@ -382,18 +373,93 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     if (!formData.phone?.trim()) {
       errors.phone = "Phone number is required";
       isValid = false;
+    } else if (!/^\d{10}$/.test(formData.phone.replace(/[^0-9]/g, ''))) {
+      errors.phone = "Enter a valid 10-digit phone number";
+      isValid = false;
     }
     
     if (!formData.email?.trim()) {
       errors.email = "Email is required";
       isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      errors.email = "Enter a valid email address";
+      isValid = false;
     }
+    
+    if (formData.website && !/^(https?:\/\/)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&//=]*)$/.test(formData.website)) {
+      errors.website = "Enter a valid website URL";
+      isValid = false;
+    }
+    
+    // Address validation
+    if (!formData.fullAddress?.trim()) {
+      errors.fullAddress = "Full address is required";
+      isValid = false;
+    }
+    
+    ADDRESS_FIELDS.forEach(field => {
+      if (field.required && !formData.address?.[field.key]?.trim()) {
+        errors.address[field.key] = `${field.key.charAt(0).toUpperCase() + field.key.slice(1)} is required`;
+        isValid = false;
+      }
+    });
     
     setFormErrors(errors);
     return isValid;
   };
 
-  // Form submission handler
+  // Remove gallery image
+  const removeGalleryImage = (index) => {
+    const imageUrl = formData.galleryImages[index];
+    
+    // If it's an existing image from the server (not a blob URL)
+    if (!imageUrl.startsWith('blob:')) {
+      // Add this image URL to the removal tracking
+      setImagesToRemove(prev => ({
+        ...prev,
+        gallery: [...prev.gallery, imageUrl]
+      }));
+    } else if (imageUrl.startsWith('blob:')) {
+      // For blob URLs (new files), remove from galleryFiles array
+      const fileIndex = galleryFiles.findIndex((_, i) => {
+        // Match based on array position
+        return i === galleryFiles.length - (formData.galleryImages.length - index);
+      });
+      
+      if (fileIndex !== -1) {
+        setGalleryFiles(prev => prev.filter((_, i) => i !== fileIndex));
+      }
+      
+      // Revoke the blob URL to prevent memory leaks
+      URL.revokeObjectURL(imageUrl);
+    }
+    
+    // Remove from UI regardless of type
+    setFormData(prev => ({
+      ...prev,
+      galleryImages: prev.galleryImages.filter((_, i) => i !== index),
+    }));
+  };
+
+  // Remove logo
+  const removeLogo = () => {
+    // If it's an existing logo (not a blob), mark it for removal
+    if (formData.logo && !formData.logo.startsWith('blob:')) {
+      setImagesToRemove(prev => ({
+        ...prev,
+        logo: true
+      }));
+    } else if (formData.logo && formData.logo.startsWith('blob:')) {
+      // Clean up blob URL
+      URL.revokeObjectURL(formData.logo);
+    }
+    
+    // Clear the logo file and preview
+    setLogoFile(null);
+    setFormData(prev => ({ ...prev, logo: "" }));
+  };
+
+  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -416,7 +482,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
       // Create FormData object for multipart/form-data submission
       const formDataObj = new FormData();
       
-      // Add all the basic text fields
+      // Add basic text fields
       formDataObj.append('name', formData.name);
       formDataObj.append('fullAddress', formData.fullAddress);
       formDataObj.append('phone', formData.phone);
@@ -424,43 +490,64 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
       formDataObj.append('website', formData.website || '');
       formDataObj.append('rating', formData.rating);
       formDataObj.append('reviews', formData.reviews);
-      formDataObj.append('openingHours', formData.openingHours);
-      formDataObj.append('closingHours', formData.closingHours);
+      formDataObj.append('openingHours', formData.openingHours || '');
+      formDataObj.append('closingHours', formData.closingHours || '');
       formDataObj.append('isActive', formData.isActive.toString());
       formDataObj.append('googleMap', formData.googleMap || '');
       formDataObj.append('direction', formData.direction || '');
       
-      // Add nested address fields DIRECTLY
-      formDataObj.append('address[city]', formData.address.city);
+      // Add address fields
       formDataObj.append('address[state]', formData.address.state);
+      formDataObj.append('address[city]', formData.address.city);
       formDataObj.append('address[district]', formData.address.district);
       formDataObj.append('address[pincode]', formData.address.pincode);
       
-      // Add geolocation fields DIRECTLY
+      // Add geolocation fields
       formDataObj.append('geolocation[type]', 'Point');
       
       const longitude = parseFloat(formData.geolocation.coordinates[0]);
       const latitude = parseFloat(formData.geolocation.coordinates[1]);
       
-      formDataObj.append('geolocation[coordinates][0]', longitude);
-      formDataObj.append('geolocation[coordinates][1]', latitude);
+      if (!isNaN(longitude)) {
+        formDataObj.append('geolocation[coordinates][0]', longitude);
+      }
+      
+      if (!isNaN(latitude)) {
+        formDataObj.append('geolocation[coordinates][1]', latitude);
+      }
       
       // Add logo file if it exists
       if (logoFile) {
         formDataObj.append('logo', logoFile);
       }
       
-      // Add gallery files if they exist
+      // Add gallery files
       if (galleryFiles.length > 0) {
         galleryFiles.forEach(file => {
           formDataObj.append('galleryImages', file);
         });
       }
       
+      // Add logo removal flag
+      if (imagesToRemove.logo) {
+        formDataObj.append('removeLogo', 'true');
+      }
+      
+      // Add gallery images to be removed
+      if (imagesToRemove.gallery.length > 0) {
+        imagesToRemove.gallery.forEach((imageUrl, index) => {
+          formDataObj.append(`removeGalleryImages[${index}]`, imageUrl);
+        });
+      }
+      
       // Get authentication token
       const token = getToken();
       
-      // Send data to the API using axios with authorization
+      if (!token) {
+        throw new Error("Authorization token not found");
+      }
+      
+      // Send data to the API
       const response = await axios.put(`${BASE_URL}/spas/spa/${effectiveSpaId}`, formDataObj, {
         headers: {
           'Content-Type': 'multipart/form-data',
@@ -469,17 +556,27 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
       });
       
       // Handle success
-      setSuccessMessage("Spa has been updated successfully!");
-      alert("Your spa has been updated successfully!");
+      setSuccessMessage("Spa updated successfully!");
+      
+      // Reset remove trackers
+      setImagesToRemove({
+        logo: false,
+        gallery: []
+      });
 
       // Call success callback with the updated spa data
       if (onSuccess) {
-        onSuccess(response.data);
+        onSuccess(response.data.data);
+      } else {
+        // Show success message then redirect
+        setTimeout(() => {
+          navigate("/spas");
+        }, 2000);
       }
       
     } catch (err) {
       console.error("Form submission error:", err);
-      // Handle Axios error response
+      
       if (err.response) {
         const errorMessage = err.response.data.message || err.response.data.error || 'Failed to update spa';
         setError(errorMessage);
@@ -493,7 +590,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     }
   };
 
-  // If still loading, show a loading state
+  // Loading state
   if (isLoading) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
@@ -507,7 +604,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
     );
   }
 
-  // If no spa found after loading
+  // Spa not found state
   if (!spa && !isLoading) {
     return (
       <div className="container mx-auto px-4 py-8">
@@ -522,6 +619,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
           <button
             onClick={() => {
               if (onSuccess) onSuccess(null); // Cancel operation
+              else navigate("/spas");
             }}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
           >
@@ -533,7 +631,7 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
   }
 
   return (
-    <div className="container bg-gray-200 mx-auto px-4 py-8">
+    <div className="container bg-gray-100 mx-auto px-4 py-8">
       {/* Status Messages */}
       {error && (
         <div className="mx-auto max-w-4xl mb-6 p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded-md flex items-center">
@@ -549,268 +647,339 @@ const EditSpaForm = ({ spaId, onSuccess }) => {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-sm p-6 space-y-8">
+      <div className="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 space-y-8">
         <h1 className="text-2xl font-bold text-center">Edit Spa: {formData.name}</h1>
 
-        {/* Basic Info Section */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Basic Information</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <InputField 
-              label="Spa Name" 
-              name="name" 
-              value={formData.name} 
-              onChange={handleChange} 
-              required 
-              error={formErrors.name}
-            />
-            <InputField 
-              label="Phone" 
-              name="phone" 
-              type="tel" 
-              value={formData.phone} 
-              onChange={handleChange} 
-              required 
-              error={formErrors.phone}
-            />
-            <InputField 
-              label="Email" 
-              name="email" 
-              type="email" 
-              value={formData.email} 
-              onChange={handleChange} 
-              required 
-              error={formErrors.email}
-            />
-            <InputField 
-              label="Website" 
-              name="website" 
-              type="url" 
-              value={formData.website} 
-              onChange={handleChange} 
-            />
-          </div>
-        </div>
-
-        {/* Address Section */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Address & Location</h3>
-          <div className="mb-4">
-            <InputField 
-              label="Full Address" 
-              name="fullAddress" 
-              value={formData.fullAddress} 
-              onChange={handleChange} 
-              required
-            />
-          </div>
-          <div className="grid md:grid-cols-2 gap-4">
-            {ADDRESS_FIELDS.map((field, index) => (
-              <InputField
-                key={`address-${field.key}`}
-                label={field.key.charAt(0).toUpperCase() + field.key.slice(1)}
-                name={`address.${field.key}`}
-                value={formData.address?.[field.key]}
-                onChange={handleChange}
-                required={field.required}
-                error={formErrors.address?.[field.key]}
+        <form onSubmit={handleSubmit}>
+          {/* Basic Info Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Basic Information</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <InputField 
+                label="Spa Name" 
+                name="name" 
+                value={formData.name} 
+                onChange={handleChange} 
+                required 
+                error={formErrors.name}
+                icon={<span className="text-gray-400 w-5 h-5 flex items-center justify-center">✨</span>}
               />
-            ))}
+              <InputField 
+                label="Phone" 
+                name="phone" 
+                type="tel" 
+                value={formData.phone} 
+                onChange={handleChange} 
+                required 
+                error={formErrors.phone}
+                icon={<Phone size={16} className="text-gray-400" />}
+              />
+              <InputField 
+                label="Email" 
+                name="email" 
+                type="email" 
+                value={formData.email} 
+                onChange={handleChange} 
+                required 
+                error={formErrors.email}
+                icon={<Mail size={16} className="text-gray-400" />}
+              />
+              <InputField 
+                label="Website" 
+                name="website" 
+                type="url" 
+                value={formData.website} 
+                onChange={handleChange}
+                error={formErrors.website}
+                icon={<Globe size={16} className="text-gray-400" />}
+              />
+            </div>
           </div>
-        </div>
 
-        {/* Coordinates Section */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Coordinates & Operating Hours</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            <InputField 
-              label="Longitude" 
-              type="number" 
-              step="any" 
-              value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
-              onChange={(e) => handleCoordinatesChange(0, e.target.value)} 
-            />
-            <InputField 
-              label="Latitude" 
-              type="number" 
-              step="any" 
-              value={formData.geolocation?.coordinates?.[1] === null ? "" : formData.geolocation?.coordinates?.[1]} 
-              onChange={(e) => handleCoordinatesChange(1, e.target.value)} 
-            />
-            <InputField 
-              label="Opening Hours" 
-              name="openingHours" 
-              value={formData.openingHours} 
-              onChange={handleChange} 
-            />
-            <InputField 
-              label="Closing Hours" 
-              name="closingHours" 
-              value={formData.closingHours} 
-              onChange={handleChange} 
-            />
-          </div>
-        </div>
-
-        {/* Logo Upload Section - Enhanced Design */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Spa Logo</h3>
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            {formData.logo ? (
-              <div className="flex items-center">
-                <div className="h-16 w-16 bg-white border border-gray-200 rounded-md p-1 flex-shrink-0 mr-4">
-                  <img 
-                    src={formData.logo} 
-                    alt="Logo Preview" 
-                    className="h-full w-full object-contain" 
-                  />
-                </div>
-                <div className="flex-grow">
-                  <h4 className="text-sm font-medium text-gray-700">Logo Image</h4>
-                  <p className="text-xs text-gray-500 mt-1">Click remove to change the logo</p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={() => {
-                    if (formData.logo.startsWith('blob:')) URL.revokeObjectURL(formData.logo);
-                    setFormData(prev => ({ ...prev, logo: "" }));
-                    setLogoFile(null);
-                  }}
-                  className="p-1.5 bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-4 border-2 border-dashed border-gray-300 rounded-lg">
-                <ImagePlus className="h-12 w-12 text-gray-400 mb-3" />
-                <div className="text-center">
-                  <label className="cursor-pointer">
-                    <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
-                      Choose Logo Image
-                    </span>
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      accept="image/*" 
-                      onChange={handleLogoUpload} 
-                    />
-                  </label>
-                  <p className="text-sm text-gray-500 mt-2">PNG, JPG, GIF up to 5MB</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Gallery Images Section - Enhanced Design */}
-        <div>
-          <h3 className="text-lg font-semibold mb-4 text-gray-700">Gallery Images</h3>
-          
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            {/* Upload control */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-4">
-              <label htmlFor="gallery-upload" className="cursor-pointer">
-                <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
-                <p className="text-sm font-medium text-gray-700 mb-1">
-                  Upload Gallery Images
-                </p>
-                <p className="text-xs text-gray-500 mb-3">
-                  JPEG, PNG, GIF, WEBP up to 5MB each
-                </p>
-                <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
-                  Select Images
-                </span>
-                <input
-                  id="gallery-upload"
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleGalleryUpload}
-                  className="hidden"
+          {/* Address Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Address & Location</h3>
+            <div className="mb-4">
+              <InputField 
+                label="Full Address" 
+                name="fullAddress" 
+                value={formData.fullAddress} 
+                onChange={handleChange} 
+                required
+                error={formErrors.fullAddress}
+                icon={<MapPin size={16} className="text-gray-400" />}
+              />
+            </div>
+            <div className="grid md:grid-cols-2 gap-4">
+              {ADDRESS_FIELDS.map((field) => (
+                <InputField
+                  key={`address-${field.key}`}
+                  label={field.key.charAt(0).toUpperCase() + field.key.slice(1)}
+                  name={`address.${field.key}`}
+                  value={formData.address?.[field.key]}
+                  onChange={handleChange}
+                  required={field.required}
+                  error={formErrors.address?.[field.key]}
                 />
-              </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Coordinates Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Coordinates & Operating Hours</h3>
+            <div className="grid md:grid-cols-2 gap-6">
+              <InputField 
+                label="Longitude" 
+                type="number" 
+                step="any" 
+                value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
+                onChange={(e) => handleCoordinatesChange(0, e.target.value)}
+                icon={<Compass size={16} className="text-gray-400" />}
+              />
+              <InputField 
+                label="Latitude" 
+                type="number" 
+                step="any" 
+                value={formData.geolocation?.coordinates?.[1] === null ? "" : formData.geolocation?.coordinates?.[1]} 
+                onChange={(e) => handleCoordinatesChange(1, e.target.value)}
+                icon={<Map size={16} className="text-gray-400" />}
+              />
+              <InputField 
+                label="Opening Hours" 
+                name="openingHours" 
+                value={formData.openingHours} 
+                onChange={handleChange}
+                error={formErrors.openingHours}
+                icon={<Clock size={16} className="text-gray-400" />}
+                placeholder="e.g. 9:00 AM"
+              />
+              <InputField 
+                label="Closing Hours" 
+                name="closingHours" 
+                value={formData.closingHours} 
+                onChange={handleChange}
+                error={formErrors.closingHours}
+                icon={<Clock size={16} className="text-gray-400" />}
+                placeholder="e.g. 5:00 PM"
+              />
+            </div>
+          </div>
+
+          {/* Logo Upload Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Spa Logo</h3>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              {formData.logo ? (
+                <div className="flex items-center">
+                  <div className="h-16 w-16 bg-white border border-gray-200 rounded-md p-1 flex-shrink-0 mr-4">
+                    <img 
+                      src={formData.logo} 
+                      alt="Logo Preview" 
+                      className="h-full w-full object-contain" 
+                    />
+                  </div>
+                  <div className="flex-grow">
+                    <h4 className="text-sm font-medium text-gray-700">Logo Image</h4>
+                    <p className="text-xs text-gray-500 mt-1">Click remove to change the logo</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={removeLogo}
+                    className="p-1.5 bg-red-50 text-red-500 rounded-full hover:bg-red-100 transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-4 border-2 border-dashed border-gray-300 rounded-lg">
+                  <ImagePlus className="h-12 w-12 text-gray-400 mb-3" />
+                  <div className="text-center">
+                    <label className="cursor-pointer">
+                      <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
+                        Choose Logo Image
+                      </span>
+                      <input 
+                        type="file" 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleLogoUpload} 
+                      />
+                    </label>
+                    <p className="text-sm text-gray-500 mt-2">PNG, JPG, GIF up to 5MB</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Gallery Images Section */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Gallery Images</h3>
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              {/* Upload control */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center mb-4">
+                <label htmlFor="gallery-upload" className="cursor-pointer">
+                  <Upload className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                  <p className="text-sm font-medium text-gray-700 mb-1">
+                    Upload Gallery Images
+                  </p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    JPEG, PNG, GIF, WEBP up to 5MB each
+                  </p>
+                  <span className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors inline-block">
+                    Select Images
+                  </span>
+                  <input
+                    id="gallery-upload"
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleGalleryUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+              
+              {/* Gallery Preview */}
+              {formData.galleryImages?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium mb-3 text-gray-700 flex items-center">
+                    Gallery Preview ({formData.galleryImages.length} images)
+                  </h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                    {formData.galleryImages.map((img, index) => (
+                      <div 
+                        key={`gallery-img-${index}`} 
+                        className="relative group overflow-hidden rounded-lg border border-gray-200"
+                      >
+                        <div className="aspect-w-1 aspect-h-1">
+                          <img 
+                            src={img} 
+                            alt={`Gallery ${index + 1}`} 
+                            className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                            onError={(e) => {
+                              e.target.src = 'https://via.placeholder.com/150?text=Image+Error';
+                            }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeGalleryImage(index)}
+                          className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
+                          title="Remove image"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Additional Information */}
+          <div className="mb-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Additional Information</h3>
+            
+            <div className="grid md:grid-cols-2 gap-6 mb-4">
+              <InputField 
+                label="Google Map Link" 
+                name="googleMap" 
+                type="url" 
+                value={formData.googleMap} 
+                onChange={handleChange}
+                icon={<Map size={16} className="text-gray-400" />}
+                placeholder="https://goo.gl/maps/..."
+              />
+              <InputField 
+                label="Direction Instructions" 
+                name="direction" 
+                value={formData.direction} 
+                onChange={handleChange}
+                icon={<Compass size={16} className="text-gray-400" />}
+                placeholder="How to reach the spa..."
+              />
             </div>
             
-            {/* Gallery Preview */}
-            {formData.galleryImages?.length > 0 && (
+            <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <h4 className="text-sm font-medium mb-3 text-gray-700 flex items-center">
-                  Gallery Preview ({formData.galleryImages.length} images)
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                  {formData.galleryImages.map((img, index) => (
-                    <div 
-                      key={`gallery-img-${index}`} 
-                      className="relative group overflow-hidden rounded-lg border border-gray-200"
-                    >
-                      <div className="aspect-w-1 aspect-h-1">
-                        <img 
-                          src={img} 
-                          alt={`Gallery ${index + 1}`} 
-                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeGalleryImage(index)}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-md"
-                        title="Remove image"
-                      >
-                        <X size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                <InputField 
+                  label="Rating (out of 5)" 
+                  name="rating" 
+                  type="number" 
+                  step="0.1" 
+                  min="0" 
+                  max="5" 
+                  value={formData.rating} 
+                  onChange={handleChange}
+                  icon={<Star size={16} className="text-gray-400" />}
+                />
               </div>
-            )}
+              <div>
+                <InputField 
+                  label="Number of Reviews" 
+                  name="reviews" 
+                  type="number" 
+                  min="0" 
+                  value={formData.reviews} 
+                  onChange={handleChange}
+                  icon={<MessageSquare size={16} className="text-gray-400" />}
+                />
+              </div>
+            </div>
           </div>
-        </div>
 
-        {/* Active Status */}
-        <div className="flex items-center">
-          <input
-            id="is-active"
-            type="checkbox"
-            name="isActive"
-            checked={formData.isActive}
-            onChange={handleChange}
-            className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-          />
-          <label htmlFor="is-active" className="ml-2 block text-sm text-gray-700">
-            Spa is currently active and in business
-          </label>
-        </div>
+          {/* Active Status */}
+          <div className="flex items-center mb-8 p-4 bg-gray-50 rounded-lg">
+            <input
+              id="is-active"
+              type="checkbox"
+              name="isActive"
+              checked={formData.isActive}
+              onChange={handleChange}
+              className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+            />
+            <label htmlFor="is-active" className="ml-3 block text-sm font-medium text-gray-700">
+              Spa is currently active and in business
+            </label>
+          </div>
 
-        {/* Form Controls */}
-        <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/spa"; // Redirect to spa route
-            }}
-            disabled={isSubmitting}
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+          {/* Form Controls */}
+          <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSuccess) {
+                  onSuccess(null);
+                } else {
+                  navigate("/spas");
+                }
+              }}
+              disabled={isSubmitting}
+              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
 
-          <button
-            type="submit"
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 flex items-center"
-          >
-            {isSubmitting ? (
-              <>
-                <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
-                Updating...
-              </>
-            ) : (
-              'Update Spa'
-            )}
-          </button>
-        </div>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="px-6 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors flex items-center"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                  Updating...
+                </>
+              ) : (
+                'Update Spa'
+              )}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

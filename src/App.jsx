@@ -25,6 +25,7 @@ function App() {
         <Routes>
           {/* Public Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="*" element={<h1> page not Fount  </h1>} />
           
           {/* Private Routes */}
           <Route element={<PrivateRoute />}>
@@ -32,6 +33,7 @@ function App() {
               <Route index element={<Dashboard />} /> {/* Default route when path is / */}
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="add-spa-job" element={<AddSpaJobForm />} />
+              <Route path="/spas/addSpa" element={<AddSpaForm />} />
               <Route path="addSpa" element={<AddSpaForm />} />
               <Route path="users" element={<GetAllUser />} />
               <Route path="spas" element={<Spas />} />
@@ -42,6 +44,7 @@ function App() {
               <Route path="job/:id" element={<EditSpaJobForm />} />
               <Route path="/edit-spa/:id" element={<EditSpaForm />} />
               <Route path="/view-job/:id" element={<JobView />} />
+              <Route path="*" element={<Dashboard/>} />
               
               {/* Nested routes for Spas */}
             </Route>
