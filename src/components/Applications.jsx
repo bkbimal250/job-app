@@ -262,18 +262,37 @@ const Applications = () => {
     appliedAt: new Date(application.appliedAt).toLocaleString(),
   }));
 
-  // Get complete resume URL
+  // Get complete resume URL with better path handling
   const getResumeUrl = (resumePath) => {
     if (!resumePath) return null;
     
+    console.log("Original resume path:", resumePath);
+    
     // If the URL is already absolute (starts with http), use it as is
     if (resumePath.startsWith('http')) {
+      console.log("Using absolute URL:", resumePath);
       return resumePath;
     }
     
-    // Otherwise, construct the full URL from the base URL and the relative path
-    // Remove any leading slash from the resume path to prevent double slashes
+    // Different path formats that might be used in the application data
+    // 1. Handle paths with 'uploads/' prefix
+    if (resumePath.includes('uploads/')) {
+      const uploadsPath = resumePath.substring(resumePath.indexOf('uploads/'));
+      console.log("Extracted uploads path:", uploadsPath);
+      return `${BASE_URL}/${uploadsPath}`;
+    }
+    
+    // 2. Handle paths without 'uploads/' prefix but that should have it
+    if (!resumePath.includes('uploads/') && 
+        !resumePath.includes('/') && 
+        (resumePath.endsWith('.pdf') || resumePath.endsWith('.doc') || resumePath.endsWith('.docx'))) {
+      console.log("Adding uploads/ prefix to filename");
+      return `${BASE_URL}/uploads/${resumePath}`;
+    }
+    
+    // 3. Standard case: Remove any leading slash to prevent double slashes
     const cleanPath = resumePath.startsWith('/') ? resumePath.substring(1) : resumePath;
+    console.log("Using standard path resolution:", `${BASE_URL}/${cleanPath}`);
     return `${BASE_URL}/${cleanPath}`;
   };
 
@@ -473,7 +492,7 @@ const Applications = () => {
                           <div className="resume-buttons">
                             {/* View button */}
                             <button 
-                              onClick={() => viewResumeInNewTab(application.resume)}
+                              onClick={() => viewResumeInNewTab(application.resume, application._id)}
                               className="resume-action-button view-button"
                               title="Open in new tab"
                             >
@@ -483,7 +502,7 @@ const Applications = () => {
                             {/* Preview button - for PDFs and images only */}
                             {['pdf', 'image'].includes(fileType) && (
                               <button 
-                                onClick={() => previewResume(application.resume)}
+                                onClick={() => previewResume(application.resume, application._id)}
                                 className="resume-action-button preview-button"
                                 title="Preview"
                               >
@@ -493,11 +512,24 @@ const Applications = () => {
                             
                             {/* Download button */}
                             <button 
-                              onClick={() => downloadResume(application.resume, applicantName)}
+                              onClick={() => downloadResume(application.resume, applicantName, application._id)}
                               className="resume-action-button download-button"
                               title="Download"
                             >
                               <Download size={16} />
+                            </button>
+                            
+                            {/* Debug button */}
+                            <button 
+                              onClick={() => debugResumeData(application)}
+                              className="resume-action-button debug-button"
+                              title="Debug Resume Path"
+                              style={{
+                                backgroundColor: '#fee2e2',
+                                color: '#b91c1c',
+                              }}
+                            >
+                              <AlertTriangle size={16} />
                             </button>
                           </div>
                         </div>
