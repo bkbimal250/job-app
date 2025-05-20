@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import {
   Search, Plus, User, Mail, Phone, UserPlus, X,
   CheckCircle, AlertCircle, Users, RefreshCw, Shield,
-  Edit, Trash2, UserCheck
+  Edit, Trash2, UserCheck, AlertTriangle
 } from "lucide-react";
 import axios from "axios";
 import { AuthContext } from "../auth/AuthContext";
@@ -16,7 +16,10 @@ const GetAllUser = () => {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showAddUserModal, setShowAddUserModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Form state for adding a new user
   const [formData, setFormData] = useState({
@@ -197,6 +200,60 @@ const GetAllUser = () => {
     }
   };
 
+  // Open delete confirmation modal
+  const openDeleteModal = (user) => {
+    setUserToDelete(user);
+    setShowDeleteModal(true);
+  };
+
+  // Close delete confirmation modal
+  const closeDeleteModal = () => {
+    setUserToDelete(null);
+    setShowDeleteModal(false);
+    setIsDeleting(false);
+  };
+
+  // Handle user deletion
+  const handleDelete = async () => {
+    if (!userToDelete || !userToDelete._id) {
+      closeDeleteModal();
+      return;
+    }
+
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      await axios.delete(`${BASE_URL}/users/${userToDelete._id}`, {
+        headers: {
+          Authorization: `Bearer ${getToken()}`
+        }
+      });
+
+      // Remove user from local state
+      setUsers(users.filter(user => user._id !== userToDelete._id));
+      
+      // Show success message
+      setSuccessMessage(`User ${userToDelete.fullName || userToDelete.email} has been deleted successfully!`);
+      
+      closeDeleteModal();
+    } catch (err) {
+      console.error("Error deleting user:", err);
+      
+      let errorMsg = "Failed to delete user. Please try again.";
+      
+      // Extract specific error message from API response if available
+      if (err.response?.data?.message) {
+        errorMsg = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMsg = err.response.data.error;
+      }
+      
+      setError(errorMsg);
+      setIsDeleting(false);
+    }
+  };
+
   // Filter users by name, email, phone, and role
   const filteredUsers = users.filter((user) => {
     const lowerSearch = searchTerm.toLowerCase();
@@ -263,6 +320,12 @@ const GetAllUser = () => {
             <div>
               <h3 className="font-medium text-red-800">Error</h3>
               <p className="text-red-700">{error}</p>
+              <button 
+                onClick={() => setError(null)}
+                className="mt-2 text-sm text-red-600 hover:text-red-800"
+              >
+                Dismiss
+              </button>
             </div>
           </div>
         )}
@@ -290,6 +353,7 @@ const GetAllUser = () => {
                   <option value="all">All Roles</option>
                   <option value="admin">Admin</option>
                   <option value="user">User</option>
+                  <option value="spamanager">Spa Manager</option>
                 </select>
               </div>
             </div>
@@ -352,10 +416,17 @@ const GetAllUser = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex space-x-2">
-                            <button className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition">
+                            <button 
+                              className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition tooltip"
+                              title="Edit user"
+                            >
                               <Edit size={16} />
                             </button>
-                            <button className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition">
+                            <button 
+                              className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition tooltip"
+                              title="Delete user"
+                              onClick={() => openDeleteModal(user)}
+                            >
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -548,6 +619,7 @@ const GetAllUser = () => {
                     >
                       <option value="user">User</option>
                       <option value="admin">Admin</option>
+                      <option value="spamanager">Spa Manager</option>
                     </select>
                   </div>
                 </div>
@@ -604,6 +676,56 @@ const GetAllUser = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-center mb-4">
+                <div className="bg-red-100 rounded-full p-3">
+                  <AlertTriangle className="h-6 w-6 text-red-600" />
+                </div>
+              </div>
+              <h2 className="text-xl font-bold text-center text-gray-800 mb-2">
+                Delete User
+              </h2>
+              <p className="text-center text-gray-600">
+                Are you sure you want to delete the user <strong>{userToDelete.fullName || userToDelete.email}</strong>? This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="p-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                onClick={closeDeleteModal}
+                disabled={isDeleting}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition flex items-center"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

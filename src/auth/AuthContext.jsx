@@ -1,50 +1,3 @@
-// import { createContext, useContext, useState, useEffect } from 'react';
-
-// export const AuthContext = createContext();
-
-// export const AuthProvider = ({ children }) => {
-//   const [token, setToken] = useState(null);
-//   const [role, setRole] = useState(null);
-
-//   // Use useEffect to read from localStorage on component mount (page refresh)
-//   useEffect(() => {
-//     const savedToken = localStorage.getItem('token');
-//     const savedRole = localStorage.getItem('role');
-
-//     // If token and role are present in localStorage, restore session
-//     if (savedToken && savedRole === 'admin') {
-//       setToken(savedToken);
-//       setRole(savedRole);
-//     }
-//   }, []);
-
-//   const login = (token, role) => {
-//     if (role === 'admin') {
-//       localStorage.setItem('token', token);
-//       localStorage.setItem('role', role);
-//       setToken(token);
-//       setRole(role);
-//     } else {
-//       // Block login for non-admins (optional)
-//       console.warn("Only admins can log in");
-//     }
-//   };
-
-//   const logout = () => {
-//     localStorage.removeItem('token');
-//     localStorage.removeItem('role');
-//     setToken(null);
-//     setRole(null);
-//   };
-
-//   return (
-//     <AuthContext.Provider value={{ token, role, login, logout }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// };
-
-// export const useAuth = () => useContext(AuthContext);
 
 
 import { createContext, useContext, useState, useEffect } from 'react';
@@ -63,16 +16,8 @@ export const AuthProvider = ({ children }) => {
     const initializeAuth = async () => {
       const savedToken = localStorage.getItem('token');
       const savedRole = localStorage.getItem('role');
-
-      // Optional: Add token validation here (call your backend to verify token)
-      // if (savedToken) {
-      //   const isValid = await validateToken(savedToken);
-      //   if (!isValid) {
-      //     localStorage.removeItem('token');
-      //     localStorage.removeItem('role');
-      //   }
-      // }
-
+      // Simulate an API call to check if the token is valid
+      // In a real application, you would verify the token with your backend
       if (savedToken && savedRole === 'admin') {
         setAuthState({
           token: savedToken,

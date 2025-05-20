@@ -1,13 +1,15 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
+import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import FloatingNavigator from './FloatingNavigator';
 import { LogOut } from 'lucide-react';
+import { useAuth } from '../auth/AuthContext';
 
 const Layout = () => {
+  const { logout } = useAuth();
+
   const handleLogout = () => {
-    // Add logout logic here
-    localStorage.removeItem('token');
+    logout();
     window.location.href = '/login';
   };
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { getToken } from '../utils/getToken';
 import { CSVLink } from 'react-csv';
+import { FileText, Download, Eye, ExternalLink, AlertTriangle } from 'lucide-react';
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 import './style/application.css';
 
@@ -38,6 +39,9 @@ const Applications = () => {
   // Deletion state
   const [deletingApplication, setDeletingApplication] = useState(false);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState(null);
+  
+  // Resume preview state
+  const [resumePreview, setResumePreview] = useState(null);
 
   // CSV Headers configuration
   const csvHeaders = [
@@ -154,7 +158,6 @@ const Applications = () => {
           },
         }
       );
-      console.log(response.data);
 
       if (response.status === 200) {
         // Update the application status in our local state
@@ -259,16 +262,103 @@ const Applications = () => {
     appliedAt: new Date(application.appliedAt).toLocaleString(),
   }));
 
-  // Add function to handle viewing resume
-  const viewResume = (resumeUrl) => {
-    if (!resumeUrl) return;
+  // Get complete resume URL
+  const getResumeUrl = (resumePath) => {
+    if (!resumePath) return null;
     
-    // If the URL doesn't start with http or https, assume it's a relative path from the backend
-    if (!resumeUrl.startsWith('http')) {
-      window.open(`${BASE_URL}${resumeUrl}`, '_blank');
-    } else {
-      window.open(resumeUrl, '_blank');
+    // If the URL is already absolute (starts with http), use it as is
+    if (resumePath.startsWith('http')) {
+      return resumePath;
     }
+    
+    // Otherwise, construct the full URL from the base URL and the relative path
+    // Remove any leading slash from the resume path to prevent double slashes
+    const cleanPath = resumePath.startsWith('/') ? resumePath.substring(1) : resumePath;
+    return `${BASE_URL}/${cleanPath}`;
+  };
+
+  // Function to view resume in a new tab
+  const viewResumeInNewTab = (resumePath) => {
+    if (!resumePath) {
+      setError("No resume file available");
+      return;
+    }
+    
+    const resumeUrl = getResumeUrl(resumePath);
+    window.open(resumeUrl, '_blank');
+  };
+  
+  // Function to download resume
+  const downloadResume = async (resumePath, candidateName) => {
+    if (!resumePath) {
+      setError("No resume file available");
+      return;
+    }
+    
+    try {
+      const resumeUrl = getResumeUrl(resumePath);
+      
+      // Create a filename based on the candidate's name and date
+      const safeFileName = candidateName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const fileName = `${safeFileName}_resume_${new Date().toISOString().slice(0, 10)}.pdf`;
+      
+      // Fetch the file as a blob
+      const response = await fetch(resumeUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to download resume: ${response.statusText}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create a URL for the blob
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // Create a temporary anchor element to trigger the download
+      const downloadLink = document.createElement('a');
+      downloadLink.href = blobUrl;
+      downloadLink.download = fileName;
+      
+      // Append, click, and remove the download link
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      
+      // Release the blob URL
+      window.URL.revokeObjectURL(blobUrl);
+    } catch (error) {
+      console.error("Error downloading resume:", error);
+      setError(error.message || "Failed to download resume");
+    }
+  };
+  
+  // Function to preview resume in modal
+  const previewResume = (resumePath) => {
+    if (!resumePath) {
+      setError("No resume file available");
+      return;
+    }
+    
+    const resumeUrl = getResumeUrl(resumePath);
+    setResumePreview(resumeUrl);
+  };
+  
+  // Function to close resume preview
+  const closeResumePreview = () => {
+    setResumePreview(null);
+  };
+  
+  // Determine file type from URL
+  const getFileType = (url) => {
+    if (!url) return 'unknown';
+    
+    const extension = url.split('.').pop().toLowerCase();
+    
+    if (['pdf'].includes(extension)) return 'pdf';
+    if (['doc', 'docx'].includes(extension)) return 'word';
+    if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) return 'image';
+    
+    return 'unknown';
   };
 
   // Render loading state
@@ -335,48 +425,87 @@ const Applications = () => {
         <table className="applications-table">
           <thead>
             <tr>
-             
               <th>Job Information</th>
-              <th>Applicant Informations</th>
+              <th>Applicant Information</th>
               <th>Resume</th>
               <th>Status</th>
               <th>Applied At</th>
               <th>Actions</th>
             </tr>
           </thead>
-          <tbody style={{ textAlign: 'center',border: '2px solid #000' }}>
+          <tbody style={{ textAlign: 'center', border: '2px solid #000' }}>
             {filteredApplications.length === 0 ? (
-              <tr >
-                <td colSpan="9" className="no-data">
+              <tr>
+                <td colSpan="6" className="no-data">
                   No applications found matching the filter criteria
                 </td>
               </tr>
             ) : (
               filteredApplications.map((application) => {
                 const applicant = application.candidate || application.guestInfo;
+                const applicantName = applicant?.fullName || 
+                  `${applicant?.firstname || ''} ${applicant?.lastname || ''}`.trim() || 
+                  'Unnamed Applicant';
+                const fileType = getFileType(application.resume);
+                
                 return (
-                  <tr  key={application._id } style={{ textAlign: 'center',border: '1px solid #000' }}>
+                  <tr key={application._id} style={{ textAlign: 'center', border: '1px solid #000' }}>
                     <td>
-                      <strong>Spa Name:</strong>
-                      
-                      {application.job?.spa?.name || 'N/A'}
+                      <strong>Spa Name:</strong> {application.job?.spa?.name || 'N/A'}
                       <br />
-                      <strong>Job Title:</strong>
-                    {application.job?.title || 'N/A'}
-
+                      <strong>Job Title:</strong> {application.job?.title || 'N/A'}
                     </td>
-                    <td>{applicant?.fullName || `${applicant?.firstname || ''} ${applicant?.lastname || ''}`.trim() || 'N/A'} <br />{applicant?.email || 'N/A'} <br />{applicant?.phone || 'N/A'}</td>
-                  
+                    <td>
+                      <div className="applicant-info">
+                        <div><strong>{applicantName}</strong></div>
+                        <div>{applicant?.email || 'N/A'}</div>
+                        <div>{applicant?.phone || 'N/A'}</div>
+                      </div>
+                    </td>
                     <td>
                       {application.resume ? (
-                        <button 
-                          onClick={() => viewResume(application.resume)}
-                          className="view-resume-button"
-                        >
-                          View Resume
-                        </button>
+                        <div className="resume-actions">
+                          <div className="file-type-badge">
+                            <FileText size={14} />
+                            <span>{fileType.toUpperCase()}</span>
+                          </div>
+                          
+                          <div className="resume-buttons">
+                            {/* View button */}
+                            <button 
+                              onClick={() => viewResumeInNewTab(application.resume)}
+                              className="resume-action-button view-button"
+                              title="Open in new tab"
+                            >
+                              <ExternalLink size={16} />
+                            </button>
+                            
+                            {/* Preview button - for PDFs and images only */}
+                            {['pdf', 'image'].includes(fileType) && (
+                              <button 
+                                onClick={() => previewResume(application.resume)}
+                                className="resume-action-button preview-button"
+                                title="Preview"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                            
+                            {/* Download button */}
+                            <button 
+                              onClick={() => downloadResume(application.resume, applicantName)}
+                              className="resume-action-button download-button"
+                              title="Download"
+                            >
+                              <Download size={16} />
+                            </button>
+                          </div>
+                        </div>
                       ) : (
-                        <span className="no-resume">No Resume</span>
+                        <span className="no-resume">
+                          <AlertTriangle size={16} className="no-resume-icon" />
+                          No Resume
+                        </span>
                       )}
                     </td>
                     <td>
@@ -394,7 +523,7 @@ const Applications = () => {
                           Update Status
                         </button>
                         
-                        {/* New Delete Button */}
+                        {/* Delete Button */}
                         {deleteConfirmationId === application._id ? (
                           <div className="delete-confirmation">
                             <p>Are you sure?</p>
@@ -472,6 +601,7 @@ const Applications = () => {
                 <strong>Applicant:</strong> {
                   selectedApplication.candidate?.fullName || 
                   `${selectedApplication.candidate?.firstname || ''} ${selectedApplication.candidate?.lastname || ''}`.trim() || 
+                  selectedApplication.guestInfo?.fullName ||
                   'N/A'
                 }
               </p>
@@ -517,6 +647,50 @@ const Applications = () => {
         </div>
       )}
       
+      {/* Resume Preview Modal */}
+      {resumePreview && (
+        <div className="modal-overlay">
+          <div className="resume-preview-modal">
+            <div className="modal-header">
+              <h2>Resume Preview</h2>
+              <button 
+                onClick={closeResumePreview}
+                className="close-button"
+              >
+                &times;
+              </button>
+            </div>
+            
+            <div className="resume-preview-container">
+              <iframe 
+                src={resumePreview} 
+                title="Resume Preview" 
+                className="resume-preview-frame"
+              ></iframe>
+            </div>
+            
+            <div className="modal-footer">
+              <a 
+                href={resumePreview} 
+                download 
+                className="download-button"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Download size={16} />
+                Download
+              </a>
+              <button 
+                onClick={closeResumePreview}
+                className="cancel-button"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Error notification */}
       {error && (
         <div className="error-notification">
@@ -524,6 +698,314 @@ const Applications = () => {
           <button onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
+      
+      {/* CSS for the enhanced resume features */}
+      <style jsx>{`
+        .resume-actions {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+        }
+        
+        .file-type-badge {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #f0f0f0;
+          color: #555;
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 4px;
+          gap: 3px;
+        }
+        
+        .resume-buttons {
+          display: flex;
+          gap: 6px;
+        }
+        
+        .resume-action-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 4px;
+          border: none;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .view-button {
+          background-color: #e0f2fe;
+          color: #0284c7;
+        }
+        
+        .view-button:hover {
+          background-color: #bae6fd;
+        }
+        
+        .preview-button {
+          background-color: #e0e7ff;
+          color: #4f46e5;
+        }
+        
+        .preview-button:hover {
+          background-color: #c7d2fe;
+        }
+        
+        .download-button {
+          background-color: #dcfce7;
+          color: #16a34a;
+        }
+        
+        .download-button:hover {
+          background-color: #bbf7d0;
+        }
+        
+        .no-resume {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          color: #dc2626;
+          font-size: 0.85rem;
+        }
+        
+        .no-resume-icon {
+          color: #dc2626;
+        }
+        
+        .applicant-info {
+          text-align: left;
+          padding: 6px;
+        }
+        
+        .resume-preview-modal {
+          background-color: white;
+          border-radius: 6px;
+          width: 85%;
+          max-width: 900px;
+          height: 80vh;
+          max-height: 800px;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+        
+        .resume-preview-container {
+          flex: 1;
+          overflow: hidden;
+        }
+        
+        .resume-preview-frame {
+          width: 100%;
+          height: 100%;
+          border: none;
+        }
+        
+        .modal-header {
+          padding: 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .modal-footer {
+          padding: 16px;
+          display: flex;
+          justify-content: flex-end;
+          gap: 12px;
+          border-top: 1px solid #e5e7eb;
+        }
+        
+        .modal-footer .download-button {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          text-decoration: none;
+        }
+        
+        /* Auth Error Styles */
+        .auth-error-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 70vh;
+          padding: 24px;
+        }
+        
+        .auth-error-card {
+          background-color: white;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          padding: 32px;
+          text-align: center;
+          max-width: 450px;
+          width: 100%;
+        }
+        
+        .auth-error-icon {
+          color: #ef4444;
+          width: 56px;
+          height: 56px;
+          margin: 0 auto 16px;
+        }
+        
+        .auth-error-card h2 {
+          font-size: 20px;
+          margin-bottom: 12px;
+          color: #1f2937;
+        }
+        
+        .auth-error-card p {
+          color: #4b5563;
+          margin-bottom: 24px;
+        }
+        
+        .auth-refresh-button {
+          background-color: #2563eb;
+          color: white;
+          padding: 10px 16px;
+          border-radius: 6px;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 0 auto;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .auth-refresh-button:hover {
+          background-color: #1d4ed8;
+        }
+        
+        /* Loading Spinner */
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          align-items: center;
+          min-height: 70vh;
+        }
+        
+        .loading-spinner {
+          border: 4px solid rgba(0, 0, 0, 0.1);
+          border-left-color: #2563eb;
+          border-radius: 50%;
+          width: 40px;
+          height: 40px;
+          animation: spin 1s linear infinite;
+          margin-bottom: 16px;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        /* Error Styles */
+        .error-container {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          min-height: 70vh;
+          padding: 24px;
+        }
+        
+        .error-message {
+          background-color: #fee2e2;
+          border: 1px solid #fecaca;
+          border-radius: 8px;
+          padding: 24px;
+          text-align: center;
+          max-width: 500px;
+        }
+        
+        .error-icon {
+          color: #dc2626;
+          margin-bottom: 12px;
+        }
+        
+        .error-message h3 {
+          font-size: 18px;
+          color: #b91c1c;
+          margin-bottom: 8px;
+        }
+        
+        .error-message p {
+          color: #7f1d1d;
+          margin-bottom: 16px;
+        }
+        
+        .retry-button {
+          background-color: #dc2626;
+          color: white;
+          padding: 8px 16px;
+          border-radius: 6px;
+          border: none;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          margin: 0 auto;
+          cursor: pointer;
+          transition: background-color 0.2s;
+        }
+        
+        .retry-button:hover {
+          background-color: #b91c1c;
+        }
+        
+        /* Error notification */
+        .error-notification {
+          position: fixed;
+          bottom: 20px;
+          right: 20px;
+          z-index: 1000;
+        }
+        
+        .error-notification-content {
+          background-color: #fee2e2;
+          border-left: 4px solid #dc2626;
+          padding: 12px 16px;
+          border-radius: 6px;
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          max-width: 400px;
+        }
+        
+        .error-notification p {
+          color: #7f1d1d;
+          flex: 1;
+          margin: 0;
+        }
+        
+        .error-dismiss-button {
+          background-color: transparent;
+          color: #dc2626;
+          border: none;
+          padding: 4px 8px;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 0.875rem;
+        }
+        
+        .error-dismiss-button:hover {
+          text-decoration: underline;
+        }items: center;
+          gap: 6px;
+          padding: 8px 16px;
+          text-decoration: none;
+        }
+      `}</style>
     </div>
   );
 };
