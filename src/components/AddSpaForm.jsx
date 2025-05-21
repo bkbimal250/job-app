@@ -213,20 +213,21 @@ const AddSpaForm = ({ onSuccess }) => {
   };
 
   // Validate file 
-  const validateFile = (file) => {
-    const MAX_SIZE = 10 * 1024 * 1024; // 5MB
-    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp','image/JPG'];
-    
-    if (file.size > MAX_SIZE) {
-      return `File "${file.name}" exceeds 5MB size limit`;
-    }
-    
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      return `File "${file.name}" must be a valid image (JPEG, PNG, GIF, WebP)`;
-    }
-    
-    return null;
-  };
+const validateFile = (file) => {
+  const MAX_SIZE = 10 * 1024 * 1024; // 10MB
+  const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+  if (file.size > MAX_SIZE) {
+    return `File "${file.name}" exceeds 10MB size limit`;
+  }
+
+  if (!ACCEPTED_TYPES.includes(file.type)) {
+    return `File "${file.name}" must be a valid image (JPEG, PNG, GIF, WebP)`;
+  }
+
+  return null;
+};
+
 
   // Logo upload handler
   const handleLogoUpload = (e) => {
