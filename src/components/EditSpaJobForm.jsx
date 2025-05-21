@@ -83,9 +83,7 @@ const EditSpaJobForm = () => {
         setCategories(enumsResponse.data.categories);
         setGenders(enumsResponse.data.genders);
         
-        console.log("Job data loaded:", jobData);
-        console.log("Spas loaded:", spasResponse.data);
-        console.log("Enums loaded:", enumsResponse.data);
+        // Set the initial active section based on the job data
         
       } catch (err) {
         console.error("Error fetching initial data:", err);

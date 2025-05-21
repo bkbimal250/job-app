@@ -405,7 +405,7 @@ const AddSpaForm = ({ onSuccess }) => {
     
     // Validate form
     if (!validateForm()) {
-      setError("Please fix the errors in the form before submitting");
+      setError("Please fix the Required in the form before submitting");
       return;
     }
     
@@ -474,8 +474,7 @@ const AddSpaForm = ({ onSuccess }) => {
         }
       });
       
-      // Log the response from the server
-      console.log("Server response:", response.data);
+   
       
       // Handle success
       setSuccessMessage("Your spa has been added successfully!");

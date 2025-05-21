@@ -266,11 +266,13 @@ const Applications = () => {
   const getResumeUrl = (resumePath) => {
     if (!resumePath) return null;
     
-    console.log("Original resume path:", resumePath);
+   
     
     // If the URL is already absolute (starts with http), use it as is
     if (resumePath.startsWith('http')) {
-      console.log("Using absolute URL:", resumePath);
+
+  
+
       return resumePath;
     }
     
@@ -278,7 +280,9 @@ const Applications = () => {
     // 1. Handle paths with 'uploads/' prefix
     if (resumePath.includes('uploads/')) {
       const uploadsPath = resumePath.substring(resumePath.indexOf('uploads/'));
+
       console.log("Extracted uploads path:", uploadsPath);
+      
       return `${BASE_URL}/${uploadsPath}`;
     }
     

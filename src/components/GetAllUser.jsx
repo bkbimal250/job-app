@@ -159,7 +159,7 @@ const GetAllUser = () => {
         }
       );
 
-      console.log("User created:", response.data);
+      
 
       // Reset form and close modal
       setFormData({

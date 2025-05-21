@@ -37,7 +37,7 @@ const handleEmailLogin = async (e) => {
       return;
     }
 
-    console.log("Login success:", data);
+   
     login(data.token, data.role);
     navigate("/dashboard");
   } catch (error) {
