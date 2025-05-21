@@ -19,9 +19,9 @@ const AddSpaJobForm = () => {
     category: "",
     experience: "",
     description: "",
-    hrWhatsapp: "",
-    hrPhone: "",
-    gender: "Any",
+    hrWhatsapp: "9152120246",
+    hrPhone: "9152120246",
+    gender: "",
     isNewJob: true,
     vacancies: 1,
     requirements: "",
@@ -130,8 +130,8 @@ const AddSpaJobForm = () => {
         category: "",
         experience: "",
         description: "",
-        hrWhatsapp: "",
-        hrPhone: "",
+        hrWhatsapp: "9152120246",
+        hrPhone: "9152120246",
         gender: "Any",
         isNewJob: true,
         vacancies: 1,
@@ -595,7 +595,7 @@ const getAuthHeaders = () => {
                         name="hrPhone" 
                         value={formData.hrPhone} 
                         onChange={handleChange} 
-                        placeholder="e.g. +1 (555) 123-4567" 
+                        placeholder="" 
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
                       />
                     </div>
@@ -611,7 +611,7 @@ const getAuthHeaders = () => {
                         name="hrWhatsapp" 
                         value={formData.hrWhatsapp} 
                         onChange={handleChange} 
-                        placeholder="e.g. +1 (555) 123-4567" 
+                        placeholder="" 
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
                       />
                     </div>

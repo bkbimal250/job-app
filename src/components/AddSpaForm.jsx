@@ -690,19 +690,8 @@ const AddSpaForm = ({ onSuccess }) => {
             color="green"
           >
             <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <InputField 
-                  label="Longitude" 
-                  type="number" 
-                  step="any" 
-                  value={formData.geolocation.coordinates[0] === null ? "" : formData.geolocation.coordinates[0]} 
-                  onChange={(e) => handleCoordinatesChange(0, e.target.value)} 
-                  placeholder="e.g. 76.2455"
-                  required 
-                  error={formErrors.geolocation.coordinates[0]}
-                  icon={<Compass size={18} />}
-                />
-              </div>
+           
+
               <div>
                 <InputField 
                   label="Latitude" 
@@ -713,6 +702,19 @@ const AddSpaForm = ({ onSuccess }) => {
                   placeholder="e.g. 9.9674"
                   required 
                   error={formErrors.geolocation.coordinates[1]}
+                  icon={<Compass size={18} />}
+                />
+              </div>
+                 <div>
+                <InputField 
+                  label="Longitude" 
+                  type="number" 
+                  step="any" 
+                  value={formData.geolocation.coordinates[0] === null ? "" : formData.geolocation.coordinates[0]} 
+                  onChange={(e) => handleCoordinatesChange(0, e.target.value)} 
+                  placeholder="e.g. 76.2455"
+                  required 
+                  error={formErrors.geolocation.coordinates[0]}
                   icon={<Compass size={18} />}
                 />
               </div>
