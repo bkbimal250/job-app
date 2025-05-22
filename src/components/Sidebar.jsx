@@ -25,6 +25,7 @@ const Sidebar = () => {
     <div className="bg-gray-900 text-white w-64 min-h-screen">
       <div className="p-4">
         <h1 className="text-2xl font-bold">Admin Panel</h1>
+        
       </div>
       <nav className="mt-8">
         {menuItems.map((item) => (

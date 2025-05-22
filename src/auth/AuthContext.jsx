@@ -1,5 +1,3 @@
-
-
 import { createContext, useContext, useState, useEffect } from 'react';
 
 export const AuthContext = createContext();
@@ -8,70 +6,263 @@ export const AuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState({
     token: null,
     role: null,
-    isLoading: true // Add loading state
+    user: null,
+    isLoading: true,
   });
 
-  // Initialize auth state from localStorage
-  useEffect(() => {
-    const initializeAuth = async () => {
+  // Helper function to load data from localStorage safely
+  const loadAuthData = () => {
+    console.log('Loading auth data from localStorage...');
+    
+    try {
       const savedToken = localStorage.getItem('token');
       const savedRole = localStorage.getItem('role');
-      // Simulate an API call to check if the token is valid
-      // In a real application, you would verify the token with your backend
-      if (savedToken && savedRole === 'admin') {
-        setAuthState({
-          token: savedToken,
-          role: savedRole,
-          isLoading: false
-        });
-      } else {
-        setAuthState(prev => ({ ...prev, isLoading: false }));
+      const savedUser = localStorage.getItem('user');
+      
+      // console.log('Raw localStorage data:', {
+      //   token: savedToken,
+      //   role: savedRole,
+      //   user: savedUser
+      // });
+
+      let parsedUser = null;
+      if (savedUser) {
+        try {
+          parsedUser = JSON.parse(savedUser);
+        
+        } catch (e) {
+          console.warn('Corrupted user data in localStorage, removing...', e);
+          localStorage.removeItem('user');
+        }
       }
-    };
 
-    initializeAuth();
-  }, []);
-
-  const login = (token, role) => {
-    if (role === 'admin') {
-      localStorage.setItem('token', token);
-      localStorage.setItem('role', role);
-      setAuthState({
-        token,
-        role,
-        isLoading: false
-      });
-      return true;
-    } else {
-      console.warn("Only admins can log in");
-      return false;
+      return { savedToken, savedRole, parsedUser };
+    } catch (error) {
+      console.error('Error reading from localStorage:', error);
+      return { savedToken: null, savedRole: null, parsedUser: null };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('role');
-    setAuthState({
-      token: null,
-      role: null,
-      isLoading: false
-    });
+  // Save auth data to localStorage
+  const saveAuthData = (token, role, user) => {
+    try {
+      
+      
+      localStorage.setItem('token', token);
+      localStorage.setItem('role', role);
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      console.log('Auth data saved successfully');
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
   };
 
-  const isAuthenticated = authState.role === 'admin' && authState.token !== null;
+  // Clear auth data from localStorage
+  const clearAuthData = () => {
+    try {
+      console.log('Clearing auth data from localStorage...');
+      
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user');
+      
+      console.log('Auth data cleared successfully');
+    } catch (error) {
+      console.error('Error clearing localStorage:', error);
+    }
+  };
+
+  // Initialize auth state from localStorage
+  useEffect(() => {
+    console.log('AuthProvider: Initializing auth state...');
+    
+    const { savedToken, savedRole, parsedUser } = loadAuthData();
+
+    // Check if we have valid auth data
+    if (savedToken && savedRole) {
+      console.log('Found existing auth data:', {
+        token: savedToken,
+        role: savedRole,
+        user: parsedUser
+      });
+      
+      setAuthState({
+        token: savedToken,
+        role: savedRole,
+        user: parsedUser,
+        isLoading: false,
+      });
+    } else {
+      console.log('No valid auth data found, setting unauthenticated state');
+      
+      setAuthState({
+        token: null,
+        role: null,
+        user: null,
+        isLoading: false,
+      });
+    }
+  }, []);
+
+  // Login: Save token, role, and user data
+  const login = (token, role, user) => {
+    // Validate input parameters
+    if (!token) {
+      console.error('Login failed: Token is required');
+      return { success: false, error: 'Token is required' };
+    }
+
+    if (!role) {
+      console.error('Login failed: Role is required');
+      return { success: false, error: 'Role is required' };
+    }
+
+    // Optional: Remove admin-only restriction or modify as needed
+    if (role !== 'admin') {
+      console.warn('Login failed: Only admin users are allowed');
+      return { success: false, error: 'Only admin users are allowed' };
+    }
+
+    try {
+      // Save to localStorage
+      saveAuthData(token, role, user);
+
+      // Update state
+      const newAuthState = {
+        token,
+        role,
+        user,
+        isLoading: false,
+      };
+
+      setAuthState(newAuthState);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Login failed:', error);
+      return { success: false, error: 'Failed to save login data' };
+    }
+  };
+
+  // Logout: Clear all auth-related data
+  const logout = () => {
+    console.log('Logout initiated...');
+    
+    try {
+      // Clear localStorage
+      clearAuthData();
+
+      // Reset state
+      const newAuthState = {
+        token: null,
+        role: null,
+        user: null,
+        isLoading: false,
+      };
+
+      setAuthState(newAuthState);
+      
+      console.log('Logout successful');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
+  };
+
+  // Update user data while keeping token and role
+  const updateUser = (userData) => {
+
+    // console.log('Updating user data:', userData);
+    
+    try {
+      const updatedAuthState = {
+        ...authState,
+        user: userData,
+      };
+
+      // Save to localStorage
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      // Update state
+      setAuthState(updatedAuthState);
+      
+      // console.log('User data updated successfully:', userData);
+
+    } catch (error) {
+      console.error('Failed to update user data:', error);
+    }
+  };
+
+  // Check if user is authenticated
+  const isAuthenticated = Boolean(authState.token && authState.role);
+  
+  // Check if user is admin
+  const isAdmin = authState.role === 'admin';
+
+  // Debug: Log current auth state whenever it changes
+  useEffect(() => {
+
+
+
+    // console.log('Auth state updated:', authState);
+    // console.log('Is authenticated:', isAuthenticated);
+    // console.log('Is admin:', isAdmin);
+
+
+
+
+  }, [authState, isAuthenticated, isAdmin]);
+
+  const contextValue = {
+    // State
+    token: authState.token,
+    role: authState.role,
+    user: authState.user,
+    isLoading: authState.isLoading,
+    
+    // Computed values
+    isAuthenticated,
+    isAdmin,
+    
+    // Methods
+    login,
+    logout,
+    updateUser,
+    
+    // Debug helper
+    getAuthState: () => authState,
+  };
 
   return (
-    <AuthContext.Provider value={{
-      token: authState.token,
-      role: authState.role,
-      isAuthenticated,
-      isLoading: authState.isLoading,
-      login,
-      logout
-    }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+// Custom hook to access AuthContext
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  
+  return context;
+};
+
+// Additional helper hooks
+export const useAuthUser = () => {
+  const { user } = useAuth();
+  return user;
+};
+
+export const useAuthToken = () => {
+  const { token } = useAuth();
+  return token;
+};
+
+export const useIsAuthenticated = () => {
+  const { isAuthenticated } = useAuth();
+  return isAuthenticated;
+};
