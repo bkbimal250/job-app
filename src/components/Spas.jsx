@@ -32,8 +32,16 @@ const Spas = () => {
         : Array.isArray(response.data?.data)
         ? response.data.data
         : [];
-      setSpas(data);
-      if (!data.length) setError("No spa data found");
+      
+      // Sort spas alphabetically by name
+      const sortedSpas = data.sort((a, b) => {
+        const nameA = (a.name || "").toLowerCase();
+        const nameB = (b.name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      
+      setSpas(sortedSpas);
+      if (!sortedSpas.length) setError("No spa data found");
     } catch (err) {
       console.error(err);
       setError("Unable to load spas data.");
@@ -59,11 +67,12 @@ const Spas = () => {
   const getFilterOptions = (field) => {
     const options = new Set();
     spas.forEach((spa) => spa.address?.[field] && options.add(spa.address[field]));
-    return Array.from(options);
+    // Sort filter options alphabetically as well
+    return Array.from(options).sort((a, b) => a.localeCompare(b));
   };
 
-  const getFilteredSpas = () =>
-    spas.filter((spa) => {
+  const getFilteredSpas = () => {
+    const filtered = spas.filter((spa) => {
       const nameMatch = spa.name?.toLowerCase().includes(searchTerm.toLowerCase());
       const streetMatch = spa.address?.street?.toLowerCase().includes(searchTerm.toLowerCase());
       const stateMatch = stateFilter === "all" || spa.address?.state === stateFilter;
@@ -71,6 +80,14 @@ const Spas = () => {
       const phoneMatch = phoneFilter === "" || spa.phone?.includes(phoneFilter);
       return (nameMatch || streetMatch) && stateMatch && cityMatch && phoneMatch;
     });
+    
+    // Keep filtered results in alphabetical order
+    return filtered.sort((a, b) => {
+      const nameA = (a.name || "").toLowerCase();
+      const nameB = (b.name || "").toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  };
     
   // Filtered spas with pagination
   const filteredSpas = getFilteredSpas();
