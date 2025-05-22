@@ -501,12 +501,12 @@ const getAuthHeaders = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1"> Area city </label>
                   <input 
                     name="city" 
                     value={formData.city} 
                     onChange={handleChange} 
-                    placeholder="e.g. New York" 
+                    placeholder="e.g. Vashi" 
                     required 
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
                   />

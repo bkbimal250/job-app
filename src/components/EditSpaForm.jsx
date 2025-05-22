@@ -729,14 +729,7 @@ const validateFile = (file) => {
           <div className="mb-8">
             <h3 className="text-lg font-semibold mb-4 text-gray-700 border-b pb-2">Coordinates & Operating Hours</h3>
             <div className="grid md:grid-cols-2 gap-6">
-              <InputField 
-                label="Longitude" 
-                type="number" 
-                step="any" 
-                value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
-                onChange={(e) => handleCoordinatesChange(0, e.target.value)}
-                icon={<Compass size={16} className="text-gray-400" />}
-              />
+             
               <InputField 
                 label="Latitude" 
                 type="number" 
@@ -745,6 +738,16 @@ const validateFile = (file) => {
                 onChange={(e) => handleCoordinatesChange(1, e.target.value)}
                 icon={<Map size={16} className="text-gray-400" />}
               />
+
+               <InputField 
+                label="Longitude" 
+                type="number" 
+                step="any" 
+                value={formData.geolocation?.coordinates?.[0] === null ? "" : formData.geolocation?.coordinates?.[0]} 
+                onChange={(e) => handleCoordinatesChange(0, e.target.value)}
+                icon={<Compass size={16} className="text-gray-400" />}
+              />
+              
               <InputField 
                 label="Opening Hours" 
                 name="openingHours" 
