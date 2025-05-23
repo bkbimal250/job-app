@@ -1,12 +1,181 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Check, AlertCircle, Briefcase, DollarSign, MapPin, Users, 
   Phone, MessageSquare, ArrowLeft, Calendar, Award, 
-  Settings, FileText, Building, PlusCircle
+  Settings, FileText, Building, PlusCircle, Search, ChevronDown
 } from "lucide-react";
 
 import { getToken } from "../utils/getToken";
+
+// Searchable Spa Selector Component
+const SearchableSpaSelector = ({ spas, value, onChange, required = false }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredSpas, setFilteredSpas] = useState(spas);
+  const dropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
+
+  // Get selected spa name
+  const selectedSpa = spas.find(spa => spa._id === value);
+  const selectedSpaName = selectedSpa ? selectedSpa.name : '';
+
+  // Filter spas based on search term
+  useEffect(() => {
+    if (!searchTerm.trim()) {
+      setFilteredSpas(spas);
+    } else {
+      const filtered = spas.filter(spa =>
+        spa.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredSpas(filtered);
+    }
+  }, [searchTerm, spas]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsOpen(false);
+        setSearchTerm('');
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Focus search input when dropdown opens
+  useEffect(() => {
+    if (isOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isOpen]);
+
+  const handleToggleDropdown = () => {
+    setIsOpen(!isOpen);
+    if (!isOpen) {
+      setSearchTerm('');
+    }
+  };
+
+  const handleSelectSpa = (spa) => {
+    onChange(spa._id);
+    setIsOpen(false);
+    setSearchTerm('');
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      setIsOpen(false);
+      setSearchTerm('');
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (filteredSpas.length === 1) {
+        handleSelectSpa(filteredSpas[0]);
+      }
+    }
+  };
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <label className="block text-sm font-medium text-gray-700 mb-2">
+        Select Spa {required && <span className="text-red-500">*</span>}
+      </label>
+      
+      {/* Main selector button */}
+      <div 
+        onClick={handleToggleDropdown}
+        className={`w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition cursor-pointer flex items-center justify-between ${
+          isOpen ? 'ring-2 ring-blue-500 border-blue-500' : ''
+        }`}
+      >
+        <div className="flex items-center flex-1 min-w-0">
+          <Building className="text-gray-500 h-5 w-5 mr-3 flex-shrink-0" />
+          <span className={`truncate ${selectedSpaName ? 'text-gray-900' : 'text-gray-500'}`}>
+            {selectedSpaName || 'Search and select spa...'}
+          </span>
+        </div>
+        <ChevronDown 
+          className={`h-5 w-5 text-gray-400 transition-transform flex-shrink-0 ml-2 ${
+            isOpen ? 'transform rotate-180' : ''
+          }`} 
+        />
+      </div>
+
+      {/* Dropdown */}
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-hidden">
+          {/* Search input */}
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                onKeyDown={handleKeyDown}
+                placeholder="Search spas..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+          </div>
+
+          {/* Options list */}
+          <div className="max-h-60 overflow-y-auto">
+            {filteredSpas.length === 0 ? (
+              <div className="px-4 py-6 text-center text-gray-500">
+                <Building className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+                <p className="text-sm">No spas found</p>
+                {searchTerm && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Try adjusting your search term
+                  </p>
+                )}
+              </div>
+            ) : (
+              filteredSpas.map((spa) => (
+                <div
+                  key={spa._id}
+                  onClick={() => handleSelectSpa(spa)}
+                  className={`px-4 py-3 cursor-pointer transition-colors flex items-center justify-between hover:bg-blue-50 ${
+                    value === spa._id ? 'bg-blue-50 text-blue-700' : 'text-gray-900'
+                  }`}
+                >
+                  <div className="flex items-center flex-1 min-w-0">
+                    <Building className={`h-4 w-4 mr-3 flex-shrink-0 ${
+                      value === spa._id ? 'text-blue-600' : 'text-gray-400'
+                    }`} />
+                    <span className="truncate font-medium">{spa.name}</span>
+                  </div>
+                  {value === spa._id && (
+                    <Check className="h-4 w-4 text-blue-600 flex-shrink-0 ml-2" />
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Footer with count */}
+          {filteredSpas.length > 0 && (
+            <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-500">
+              {searchTerm ? (
+                <>Showing {filteredSpas.length} of {spas.length} spas</>
+              ) : (
+                <>{spas.length} spas available</>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const AddSpaJobForm = () => {
   const navigate = useNavigate();
@@ -38,15 +207,20 @@ const AddSpaJobForm = () => {
   const [activeSection, setActiveSection] = useState(1);
   const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-  // Prepare auth headers with token
-
+  // Auth headers helper
+  const getAuthHeaders = () => {
+    const token = getToken();
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${token}`
+    };
+  };
 
   // Fetch spa list and enums
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
-        
         const headers = getAuthHeaders();
         
         // Fetch spas
@@ -76,9 +250,7 @@ const AddSpaJobForm = () => {
         
         setError(null);
       } catch (err) {
-
         console.error("Error fetching initial data:", err);
-
         setError("Failed to load form data. Please check your connection and try again.");
       } finally {
         setLoading(false);
@@ -94,6 +266,13 @@ const AddSpaJobForm = () => {
     setFormData((prev) => ({
       ...prev,
       [name]: newValue,
+    }));
+  };
+
+  const handleSpaChange = (spaId) => {
+    setFormData((prev) => ({
+      ...prev,
+      spa: spaId,
     }));
   };
 
@@ -142,7 +321,7 @@ const AddSpaJobForm = () => {
       // Auto-hide success message after 3 seconds, then navigate back
       setTimeout(() => {
         setSuccessMessage("");
-        navigate("/jobs"); // Navigate back to the Spa management page
+        navigate("/jobs");
       }, 3000);
       
     } catch (err) {
@@ -152,14 +331,6 @@ const AddSpaJobForm = () => {
       setIsSubmitting(false);
     }
   };
-
-const getAuthHeaders = () => {
-  const token = getToken();
-  return {
-    "Content-Type": "application/json",
-    "Authorization": `Bearer ${token}`
-  };
-};
 
   const handleAnotherSubmission = () => {
     setFormData({
@@ -185,9 +356,9 @@ const getAuthHeaders = () => {
     window.scrollTo(0, 0);
   };
 
- const handleGoBack = () => {
-  navigate("/jobs");
-};
+  const handleGoBack = () => {
+    navigate("/jobs");
+  };
 
   const goToSection = (sectionNumber) => {
     setActiveSection(sectionNumber);
@@ -215,139 +386,128 @@ const getAuthHeaders = () => {
 
   return (
     <div className="min-h-screen bg-gray-600 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header with Back Button */}
-        <div className="bg-white rounded-xl shadow-md p-6 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center">
+        <div className="bg-white rounded-xl shadow-md p-8 mb-8 flex justify-between items-center">
           <div>
             <button 
               onClick={handleGoBack} 
-              className="mb-4 sm:mb-0 flex items-center text-blue-600 hover:text-blue-800 transition-colors font-medium"
+              className="flex items-center text-blue-600 hover:text-blue-800 transition-colors font-medium text-lg"
             >
-              <ArrowLeft className="mr-2 h-5 w-5" />
+              <ArrowLeft className="mr-3 h-6 w-6" />
               Back to Spa Management
             </button>
           </div>
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 flex items-center">
-            <Briefcase className="mr-3 text-blue-600 h-6 w-6 sm:h-7 sm:w-7" />
+          <h2 className="text-4xl font-bold text-gray-800 flex items-center">
+            <Briefcase className="mr-4 text-blue-600 h-8 w-8" />
             Add New Spa Job
           </h2>
         </div>
         
         {/* Alert Messages */}
         {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 flex items-start">
-              <div className="bg-red-100 rounded-full p-2 mr-3 flex-shrink-0">
-                <AlertCircle className="text-red-500 h-5 w-5" />
+          <div className="mb-8 bg-red-50 border border-red-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-start">
+              <div className="bg-red-100 rounded-full p-3 mr-4 flex-shrink-0">
+                <AlertCircle className="text-red-500 h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-medium text-red-800 mb-1">There was a problem</h3>
-                <p className="text-red-700 text-sm">{error}</p>
+                <h3 className="font-medium text-red-800 mb-2 text-lg">There was a problem</h3>
+                <p className="text-red-700">{error}</p>
               </div>
             </div>
           </div>
         )}
         
         {successMessage && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-xl shadow-sm overflow-hidden">
-            <div className="p-4 flex items-start">
-              <div className="bg-green-100 rounded-full p-2 mr-3 flex-shrink-0">
-                <Check className="text-green-500 h-5 w-5" />
+          <div className="mb-8 bg-green-50 border border-green-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="p-6 flex items-start">
+              <div className="bg-green-100 rounded-full p-3 mr-4 flex-shrink-0">
+                <Check className="text-green-500 h-6 w-6" />
               </div>
               <div>
-                <h3 className="font-medium text-green-800 mb-1">Success!</h3>
-                <p className="text-green-700 text-sm">{successMessage}</p>
+                <h3 className="font-medium text-green-800 mb-2 text-lg">Success!</h3>
+                <p className="text-green-700">{successMessage}</p>
               </div>
             </div>
           </div>
         )}
 
         {/* Progress Steps */}
-        <div className="hidden sm:flex justify-between items-center mb-6 bg-white rounded-xl shadow-md p-4">
+        <div className="flex justify-between items-center mb-8 bg-white rounded-xl shadow-md p-6">
           <div 
             className={`flex flex-col items-center cursor-pointer ${activeSection >= 1 ? 'text-blue-600' : 'text-gray-400'}`}
             onClick={() => goToSection(1)}
           >
-            <div className={`rounded-full h-10 w-10 flex items-center justify-center border-2 ${activeSection >= 1 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-2`}>
-              <Briefcase className="h-5 w-5" />
+            <div className={`rounded-full h-12 w-12 flex items-center justify-center border-2 ${activeSection >= 1 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-3`}>
+              <Briefcase className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium">Job Details</span>
           </div>
           
-          <div className={`flex-1 h-0.5 mx-4 ${activeSection >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+          <div className={`flex-1 h-1 mx-6 rounded ${activeSection >= 2 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
           
           <div 
             className={`flex flex-col items-center cursor-pointer ${activeSection >= 2 ? 'text-blue-600' : 'text-gray-400'}`}
             onClick={() => goToSection(2)}
           >
-            <div className={`rounded-full h-10 w-10 flex items-center justify-center border-2 ${activeSection >= 2 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-2`}>
-              <MapPin className="h-5 w-5" />
+            <div className={`rounded-full h-12 w-12 flex items-center justify-center border-2 ${activeSection >= 2 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-3`}>
+              <MapPin className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium">Location</span>
           </div>
           
-          <div className={`flex-1 h-0.5 mx-4 ${activeSection >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+          <div className={`flex-1 h-1 mx-6 rounded ${activeSection >= 3 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
           
           <div 
             className={`flex flex-col items-center cursor-pointer ${activeSection >= 3 ? 'text-blue-600' : 'text-gray-400'}`}
             onClick={() => goToSection(3)}
           >
-            <div className={`rounded-full h-10 w-10 flex items-center justify-center border-2 ${activeSection >= 3 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-2`}>
-              <Building className="h-5 w-5" />
+            <div className={`rounded-full h-12 w-12 flex items-center justify-center border-2 ${activeSection >= 3 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-3`}>
+              <Building className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium">Spa & Contact</span>
           </div>
           
-          <div className={`flex-1 h-0.5 mx-4 ${activeSection >= 4 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
+          <div className={`flex-1 h-1 mx-6 rounded ${activeSection >= 4 ? 'bg-blue-600' : 'bg-gray-300'}`}></div>
           
           <div 
             className={`flex flex-col items-center cursor-pointer ${activeSection >= 4 ? 'text-blue-600' : 'text-gray-400'}`}
             onClick={() => goToSection(4)}
           >
-            <div className={`rounded-full h-10 w-10 flex items-center justify-center border-2 ${activeSection >= 4 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-2`}>
-              <FileText className="h-5 w-5" />
+            <div className={`rounded-full h-12 w-12 flex items-center justify-center border-2 ${activeSection >= 4 ? 'border-blue-600 bg-blue-50' : 'border-gray-300'} mb-3`}>
+              <FileText className="h-6 w-6" />
             </div>
             <span className="text-sm font-medium">Description</span>
-          </div>
-        </div>
-        
-        {/* Mobile Progress Indicator */}
-        <div className="sm:hidden mb-4 bg-white rounded-xl p-3 shadow-md">
-          <h4 className="text-sm font-medium text-gray-500 mb-2">Step {activeSection} of 4</h4>
-          <div className="flex h-2 overflow-hidden bg-gray-200 rounded">
-            <div 
-              className="bg-blue-600 transition-all duration-300" 
-              style={{ width: `${(activeSection / 4) * 100}%` }}
-            ></div>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="relative">
           {/* Job Details Section */}
           <div className={`transition-all duration-300 ${activeSection === 1 ? 'block' : 'hidden'}`}>
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-md mb-6">
-              <div className="flex items-center mb-6">
-                <div className="bg-blue-100 p-3 rounded-lg mr-4">
-                  <Briefcase className="h-6 w-6 text-blue-700" />
+            <div className="bg-white p-10 rounded-xl shadow-md mb-8">
+              <div className="flex items-center mb-8">
+                <div className="bg-blue-100 p-4 rounded-lg mr-6">
+                  <Briefcase className="h-8 w-8 text-blue-700" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Job Details</h3>
+                <h3 className="text-3xl font-bold text-gray-800">Job Details</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                <div className="col-span-full">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Job Title</label>
+              <div className="grid grid-cols-2 gap-8">
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Title</label>
                   <input 
                     name="title" 
                     value={formData.title} 
                     onChange={handleChange} 
                     placeholder="e.g. Massage Therapist" 
                     required 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Salary</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Salary</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <DollarSign className="text-gray-500 h-5 w-5" />
@@ -358,13 +518,13 @@ const getAuthHeaders = () => {
                       onChange={handleChange} 
                       placeholder="e.g. ₹50,000 - ₹70,000" 
                       required 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Settings className="text-gray-500 h-5 w-5" />
@@ -374,7 +534,7 @@ const getAuthHeaders = () => {
                       value={formData.category} 
                       onChange={handleChange} 
                       required 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none"
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none text-lg"
                     >
                       <option value="">Select Category</option>
                       {categories.map((cat, idx) => (
@@ -390,7 +550,7 @@ const getAuthHeaders = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Experience Required</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Experience Required</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Award className="text-gray-500 h-5 w-5" />
@@ -401,19 +561,19 @@ const getAuthHeaders = () => {
                       onChange={handleChange} 
                       placeholder="e.g. 2-3 years" 
                       required 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender Preference</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender Preference</label>
                   <div className="relative">
                     <select 
                       name="gender" 
                       value={formData.gender} 
                       onChange={handleChange} 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none text-lg"
                     >
                       <option value="Any">Any</option>
                       {genders.map((g, idx) => (
@@ -429,7 +589,7 @@ const getAuthHeaders = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Number of Vacancies</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Number of Vacancies</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Users className="text-gray-500 h-5 w-5" />
@@ -440,13 +600,13 @@ const getAuthHeaders = () => {
                       min="1"
                       value={formData.vacancies} 
                       onChange={handleChange} 
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                     />
                   </div>
                 </div>
 
-                <div className="col-span-full">
-                  <div className="mt-2">
+                <div className="col-span-2">
+                  <div className="mt-4">
                     <label className="inline-flex items-center cursor-pointer">
                       <input 
                         type="checkbox" 
@@ -467,10 +627,10 @@ const getAuthHeaders = () => {
               <button 
                 type="button" 
                 onClick={nextSection}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
                 Next: Location
-                <svg className="ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="ml-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -479,48 +639,48 @@ const getAuthHeaders = () => {
 
           {/* Location Section */}
           <div className={`transition-all duration-300 ${activeSection === 2 ? 'block' : 'hidden'}`}>
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-md mb-6">
-              <div className="flex items-center mb-6">
-                <div className="bg-green-100 p-3 rounded-lg mr-4">
-                  <MapPin className="h-6 w-6 text-green-700" />
+            <div className="bg-white p-10 rounded-xl shadow-md mb-8">
+              <div className="flex items-center mb-8">
+                <div className="bg-green-100 p-4 rounded-lg mr-6">
+                  <MapPin className="h-8 w-8 text-green-700" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Location Details</h3>
+                <h3 className="text-3xl font-bold text-gray-800">Location Details</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4">
+              <div className="grid grid-cols-3 gap-8">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Location</label>
                   <input 
                     name="location" 
                     value={formData.location} 
                     onChange={handleChange} 
                     placeholder="e.g. Downtown" 
                     required 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1"> Area city </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Area City</label>
                   <input 
                     name="city" 
                     value={formData.city} 
                     onChange={handleChange} 
                     placeholder="e.g. Vashi" 
                     required 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                   />
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State</label>
                   <input 
                     name="state" 
                     value={formData.state} 
                     onChange={handleChange} 
-                    placeholder="e.g. NY" 
+                    placeholder="e.g. Maharashtra" 
                     required 
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                   />
                 </div>
               </div>
@@ -530,9 +690,9 @@ const getAuthHeaders = () => {
               <button 
                 type="button" 
                 onClick={prevSection}
-                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                className="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
-                <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="mr-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
                 </svg>
                 Back
@@ -540,10 +700,10 @@ const getAuthHeaders = () => {
               <button 
                 type="button" 
                 onClick={nextSection}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
                 Next: Spa & Contact
-                <svg className="ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="ml-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -552,41 +712,26 @@ const getAuthHeaders = () => {
 
           {/* Spa & Contact Section */}
           <div className={`transition-all duration-300 ${activeSection === 3 ? 'block' : 'hidden'}`}>
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-md mb-6">
-              <div className="flex items-center mb-6">
-                <div className="bg-purple-100 p-3 rounded-lg mr-4">
-                  <Building className="h-6 w-6 text-purple-700" />
+            <div className="bg-white p-10 rounded-xl shadow-md mb-8">
+              <div className="flex items-center mb-8">
+                <div className="bg-purple-100 p-4 rounded-lg mr-6">
+                  <Building className="h-8 w-8 text-purple-700" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Spa & Contact Information</h3>
+                <h3 className="text-3xl font-bold text-gray-800">Spa & Contact Information</h3>
               </div>
               
-              <div className="space-y-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Spa</label>
-                  <div className="relative">
-                    <select 
-                      name="spa" 
-                      value={formData.spa} 
-                      onChange={handleChange} 
-                      required 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none"
-                    >
-                      <option value="">Select Spa</option>
-                      {spas.map((spa) => (
-                        <option key={spa._id} value={spa._id}>{spa.name}</option>
-                      ))}
-                    </select>
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-8">
+                {/* Searchable Spa Selector */}
+                <SearchableSpaSelector
+                  spas={spas}
+                  value={formData.spa}
+                  onChange={handleSpaChange}
+                  required={true}
+                />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-8">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">HR Phone</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">HR Phone</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Phone className="text-gray-500 h-5 w-5" />
@@ -595,14 +740,14 @@ const getAuthHeaders = () => {
                         name="hrPhone" 
                         value={formData.hrPhone} 
                         onChange={handleChange} 
-                        placeholder="" 
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                        placeholder="Enter HR phone number" 
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                       />
                     </div>
                   </div>
                   
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">HR WhatsApp</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">HR WhatsApp</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <MessageSquare className="text-gray-500 h-5 w-5" />
@@ -611,8 +756,8 @@ const getAuthHeaders = () => {
                         name="hrWhatsapp" 
                         value={formData.hrWhatsapp} 
                         onChange={handleChange} 
-                        placeholder="" 
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
+                        placeholder="Enter WhatsApp number" 
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                       />
                     </div>
                   </div>
@@ -624,9 +769,9 @@ const getAuthHeaders = () => {
               <button 
                 type="button" 
                 onClick={prevSection}
-                className="px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                className="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
-                <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="mr-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
                 </svg>
                 Back
@@ -634,10 +779,10 @@ const getAuthHeaders = () => {
               <button 
                 type="button" 
                 onClick={nextSection}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center"
+                className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
                 Next: Description
-                <svg className="ml-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="ml-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>
@@ -646,34 +791,34 @@ const getAuthHeaders = () => {
 
           {/* Description Section */}
           <div className={`transition-all duration-300 ${activeSection === 4 ? 'block' : 'hidden'}`}>
-            <div className="bg-white p-6 sm:p-8 rounded-xl shadow-md mb-6">
-              <div className="flex items-center mb-6">
-                <div className="bg-amber-100 p-3 rounded-lg mr-4">
-                  <FileText className="h-6 w-6 text-amber-700" />
+            <div className="bg-white p-10 rounded-xl shadow-md mb-8">
+              <div className="flex items-center mb-8">
+                <div className="bg-amber-100 p-4 rounded-lg mr-6">
+                  <FileText className="h-8 w-8 text-amber-700" />
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Job Description & Requirements</h3>
+                <h3 className="text-3xl font-bold text-gray-800">Job Description & Requirements</h3>
               </div>
               
-              <div className="space-y-5">
+              <div className="space-y-8">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Requirements</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Requirements</label>
                   <div className="relative">
                     <textarea 
                       name="requirements" 
                       value={formData.requirements} 
                       onChange={handleChange} 
                       placeholder="List all job requirements here..." 
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
-                      rows="3"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
+                      rows="4"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-2 text-sm text-gray-500">
                     Describe qualifications, skills, and experience required for this position.
                   </p>
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Job Description</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Job Description</label>
                   <div className="relative">
                     <textarea 
                       name="description" 
@@ -681,11 +826,11 @@ const getAuthHeaders = () => {
                       onChange={handleChange} 
                       placeholder="Provide a detailed job description..." 
                       required
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" 
-                      rows="5"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
+                      rows="6"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-2 text-sm text-gray-500">
                     Include responsibilities, daily activities, and any other important details about the role.
                   </p>
                 </div>
@@ -693,47 +838,46 @@ const getAuthHeaders = () => {
             </div>
             
             {/* Final Action Buttons */}
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
+            <div className="flex justify-between gap-6">
               <button 
                 type="button" 
                 onClick={prevSection}
-                className="order-2 sm:order-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                className="px-8 py-4 bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
               >
-                <svg className="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="mr-3 h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clipRule="evenodd" />
                 </svg>
                 Back
               </button>
               
-              <div className="order-1 sm:order-2 flex flex-col sm:flex-row gap-3">
+              <div className="flex gap-4">
                 <button 
                   type="button"
                   onClick={handleGoBack}
-                  className="px-6 py-3 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                  className="px-8 py-4 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
                 >
                   Cancel
                 </button>
                 
                 {successMessage && (
-
                   <button 
                     type="button"
                     onClick={handleAnotherSubmission}
-                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center"
+                    className="px-8 py-4 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center text-lg"
                   >
-                    <PlusCircle className="mr-2 h-5 w-5" />
+                    <PlusCircle className="mr-3 h-6 w-6" />
                     Add Another Job
                   </button>
                 )}
                 
                 <button 
                   type="submit" 
-                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center justify-center disabled:bg-blue-400"
+                  className="px-10 py-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-colors flex items-center disabled:bg-blue-400 text-lg"
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? (
                     <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white mr-3"></div>
                       Submitting...
                     </>
                   ) : (

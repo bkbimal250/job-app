@@ -67,6 +67,7 @@ const EditSpaJobForm = () => {
         
         // Process job data - make sure spa is properly formatted as ID
         const jobData = jobResponse.data;
+      
         
         // Handle the spa field which might be an object or an ID
         if (jobData.spa && typeof jobData.spa === 'object' && jobData.spa._id) {

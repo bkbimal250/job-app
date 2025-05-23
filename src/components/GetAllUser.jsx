@@ -2,7 +2,7 @@ import React, { useContext, useEffect, useState } from "react";
 import {
   Search, Plus, User, Mail, Phone, UserPlus, X,
   CheckCircle, AlertCircle, Users, RefreshCw, Shield,
-  Edit, Trash2, UserCheck, AlertTriangle
+  Trash2, UserCheck, AlertTriangle, Eye, FileText
 } from "lucide-react";
 import axios from "axios";
 import { AuthContext } from "../auth/AuthContext";
@@ -30,6 +30,7 @@ const GetAllUser = () => {
     gender: "Male",
     phone: "",
     role: "admin",
+    resume:null,
     password: ""
   });
 
@@ -254,6 +255,22 @@ const GetAllUser = () => {
     }
   };
 
+  // Handle resume viewing
+  const handleViewResume = (resume) => {
+    if (!resume) {
+      alert("No resume available for this user.");
+      return;
+    }
+    
+    // If resume is a URL, open it in a new tab
+    if (typeof resume === 'string' && (resume.startsWith('http') || resume.startsWith('/'))) {
+      window.open(resume, '_blank');
+    } else {
+      // Handle other resume formats or show in modal
+      alert("Resume: " + resume);
+    }
+  };
+
   // Filter users by name, email, phone, and role
   const filteredUsers = users.filter((user) => {
     const lowerSearch = searchTerm.toLowerCase();
@@ -375,6 +392,7 @@ const GetAllUser = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resume</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -414,14 +432,29 @@ const GetAllUser = () => {
                             {user.gender}
                           </div>
                         </td>
+
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-700">
+                          <div className="flex items-center">
+                            {user.resume ? (
+                              <button
+                                onClick={() => handleViewResume(user.resume)}
+                                className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition text-sm font-medium"
+                                title="View Resume"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View Resume
+                              </button>
+                            ) : (
+                              <div className="flex items-center text-gray-400">
+                                <FileText className="h-4 w-4 mr-2" />
+                                No Resume
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex space-x-2">
-                            <button 
-                              className="p-1.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded transition tooltip"
-                              title="Edit user"
-                            >
-                              <Edit size={16} />
-                            </button>
                             <button 
                               className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded transition tooltip"
                               title="Delete user"
@@ -435,7 +468,7 @@ const GetAllUser = () => {
                     ))
                   ) : (
                     <tr>
-                      <td colSpan="6" className="text-center py-12">
+                      <td colSpan="7" className="text-center py-12">
                         <div className="flex flex-col items-center">
                           <Users className="h-12 w-12 text-gray-300 mb-4" />
                           <p className="text-gray-500 text-lg mb-1">No users found</p>
@@ -603,7 +636,6 @@ const GetAllUser = () => {
                     >
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
-                      <option value="Other">Other</option>
                     </select>
                   </div>
 
@@ -623,6 +655,11 @@ const GetAllUser = () => {
                     </select>
                   </div>
                 </div>
+
+                {/* {Resume colums} */}
+
+              
+
               </div>
 
               {/* Password Field - Only in the Add User Modal Form */}
