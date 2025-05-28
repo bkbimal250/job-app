@@ -301,7 +301,7 @@ const JobView = () => {
                     <p className="font-medium">
                       {job.hrWhatsapp ? (
                         <a 
-                          href={`https://wa.me/${job.hrWhatsapp.replace(/\D/g, '')}`} 
+                          href={`https://wa.me/+91${job.hrWhatsapp.replace(/\D/g, '')}`} 
                           target="_blank" 
                           rel="noopener noreferrer"
                           className="text-blue-600 hover:underline"
@@ -331,7 +331,7 @@ const JobView = () => {
                     <div className="inline-flex items-center px-4 py-2 bg-blue-50 rounded-lg">
                       <Users className="h-5 w-5 text-blue-600 mr-2" />
                       <span className="font-medium text-blue-800">
-                        {job.applications || 0} Applicant{job.applications !== 1 && 's'}
+                        {Array.isArray(job.applications) ? job.applications.length : (job.applications || 0)}
                       </span>
                     </div>
                   </div>

@@ -188,8 +188,8 @@ const AddSpaJobForm = () => {
     category: "",
     experience: "",
     description: "",
-    hrWhatsapp: "9152120246",
-    hrPhone: "9152120246",
+    hrWhatsapp: "8422855035",
+    hrPhone: "8422855035",
     gender: "",
     isNewJob: true,
     vacancies: 1,
@@ -309,9 +309,9 @@ const AddSpaJobForm = () => {
         category: "",
         experience: "",
         description: "",
-        hrWhatsapp: "9152120246",
-        hrPhone: "9152120246",
-        gender: "Any",
+        hrWhatsapp: "8422855035",
+        hrPhone: "8422855035",
+        gender: "",
         isNewJob: true,
         vacancies: 1,
         requirements: "",
@@ -342,9 +342,9 @@ const AddSpaJobForm = () => {
       category: "",
       experience: "",
       description: "",
-      hrWhatsapp: "",
-      hrPhone: "",
-      gender: "Any",
+      hrWhatsapp: "8422855035",
+      hrPhone: "8422855035",
+      gender: "",
       isNewJob: true,
       vacancies: 1,
       requirements: "",
@@ -575,7 +575,7 @@ const AddSpaJobForm = () => {
                       onChange={handleChange} 
                       className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition appearance-none text-lg"
                     >
-                      <option value="Any">Any</option>
+                      <option value="Any">Select Gender</option>
                       {genders.map((g, idx) => (
                         <option key={idx} value={g}>{g}</option>
                       ))}
@@ -654,7 +654,7 @@ const AddSpaJobForm = () => {
                     name="location" 
                     value={formData.location} 
                     onChange={handleChange} 
-                    placeholder="e.g. Downtown" 
+                    placeholder="e.g. Navi Mumbai" 
                     required 
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-lg" 
                   />

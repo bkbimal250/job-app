@@ -303,7 +303,8 @@ const Jobs = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className="px-2 py-1 text-xs font-medium bg-indigo-50 text-indigo-800 rounded-full">
-                            {job.applications || 0}
+                            {/* Count the number of applications */}
+                            {Array.isArray(job.applications) ? job.applications.length : (job.applications || 0)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">

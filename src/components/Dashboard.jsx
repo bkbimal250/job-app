@@ -243,6 +243,7 @@ const Dashboard = () => {
         `${BASE_URL}/stats`,
         {
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${getToken()}`,
           },
         }

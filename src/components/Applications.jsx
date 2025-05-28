@@ -19,27 +19,27 @@ const Applications = () => {
   const [applications, setApplications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Filtering state
   const [jobFilter, setJobFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  
+
   // Pagination state
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   // Filtered applications
   const [filteredApplications, setFilteredApplications] = useState([]);
-  
+
   // Status update state
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [selectedApplication, setSelectedApplication] = useState(null);
-  
+
   // Deletion state
   const [deletingApplication, setDeletingApplication] = useState(false);
   const [deleteConfirmationId, setDeleteConfirmationId] = useState(null);
-  
+
   // Resume preview state
   const [resumePreview, setResumePreview] = useState(null);
 
@@ -65,7 +65,7 @@ const Applications = () => {
     const fetchApplications = async () => {
       setLoading(true);
       setError(null);
-      
+
       try {
         const response = await axios.get(
           `${BASE_URL}/application/admin/applications`,
@@ -80,6 +80,8 @@ const Applications = () => {
             },
           }
         );
+
+        console.log("Application data:", response.data)
 
         if (response.status === 200) {
           // Initialize with an empty array if data is missing
@@ -108,22 +110,22 @@ const Applications = () => {
       setFilteredApplications([]);
       return;
     }
-    
+
     const filteredData = applications.filter((application) => {
       // Skip null or undefined applications
       if (!application) return false;
-      
+
       // Check if job title matches filter
       const matchesJob =
-        !jobFilter || 
+        !jobFilter ||
         (application.job?.title?.toLowerCase().includes(jobFilter.toLowerCase()) ?? false) ||
         (application.job?.spa?.name?.toLowerCase().includes(jobFilter.toLowerCase()) ?? false);
-        
+
       // Check if status matches filter
       const matchesStatus =
-        !statusFilter || 
+        !statusFilter ||
         (application.status?.toLowerCase() === statusFilter.toLowerCase());
-        
+
       return matchesJob && matchesStatus;
     });
 
@@ -143,9 +145,9 @@ const Applications = () => {
       setError("Cannot update status: Application ID is missing");
       return;
     }
-    
+
     setUpdatingStatus(true);
-    
+
     try {
       // Check if the new status is valid
       const response = await axios.put(
@@ -163,14 +165,14 @@ const Applications = () => {
         // Update the application status in our local state
         setApplications(prevApplications => {
           if (!prevApplications) return [];
-          
-          return prevApplications.map(app => 
-            app && app._id === applicationId 
-              ? { ...app, status: newStatus } 
+
+          return prevApplications.map(app =>
+            app && app._id === applicationId
+              ? { ...app, status: newStatus }
               : app
           );
         });
-        
+
         // Clear selected application
         setSelectedApplication(null);
       } else {
@@ -190,9 +192,9 @@ const Applications = () => {
       setError("Cannot delete: Application ID is missing");
       return;
     }
-    
+
     setDeletingApplication(true);
-    
+
     try {
       const response = await axios.delete(
         `${BASE_URL}/application/user/applications/${applicationId}`,
@@ -208,12 +210,12 @@ const Applications = () => {
         // Remove the deleted application from our local state
         setApplications(prevApplications => {
           if (!prevApplications) return [];
-          
-          return prevApplications.filter(app => 
+
+          return prevApplications.filter(app =>
             app && app._id !== applicationId
           );
         });
-        
+
         // Clear delete confirmation
         setDeleteConfirmationId(null);
       } else {
@@ -236,7 +238,7 @@ const Applications = () => {
   const closeStatusUpdateModal = () => {
     setSelectedApplication(null);
   };
-  
+
   // Function to show delete confirmation
   const showDeleteConfirmation = (applicationId) => {
     setDeleteConfirmationId(applicationId);
@@ -251,49 +253,52 @@ const Applications = () => {
   const csvData = filteredApplications.map((application) => ({
     'job.title': application.job?.title || '',
     'spa.name': application.job?.spa?.name || '',
-    'candidate.fullName': application.candidate?.fullName || 
-      `${application.candidate?.firstname || ''} ${application.candidate?.lastname || ''}`.trim() || 
-      application.guestInfo?.fullName || '',
+    'candidate.fullName':
+      application.candidate?.fullName ||
+      `${application.candidate?.firstname || ''} ${application.candidate?.lastname || ''}`.trim() ||
+      application.guestInfo?.fullName ||
+      '',
     'candidate.email': application.candidate?.email || application.guestInfo?.email || '',
     'candidate.phone': application.candidate?.phone || application.guestInfo?.phone || '',
-    resume: application.resume ? 'Available' : 'No Resume',
+    resume: application.resume || application.candidate?.resume ? 'Available' : 'No Resume',
     coverLetter: application.coverLetter || 'No Cover Letter',
     status: application.status || '',
-    appliedAt: new Date(application.appliedAt).toLocaleString(),
+    appliedAt: application.appliedAt ? new Date(application.appliedAt).toLocaleString() : '',
   }));
+
 
   // Get complete resume URL with better path handling
   const getResumeUrl = (resumePath) => {
     if (!resumePath) return null;
-    
-   
-    
-    // If the URL is already absolute (starts with http), use it as is
-    if (resumePath.startsWith('http')) {
 
-  
+
+
+    // If the URL is already absolute (starts with http), use it as is
+    if (resumePath.startsWith('https')) {
+
+
 
       return resumePath;
     }
-    
+
     // Different path formats that might be used in the application data
     // 1. Handle paths with 'uploads/' prefix
     if (resumePath.includes('uploads/')) {
       const uploadsPath = resumePath.substring(resumePath.indexOf('uploads/'));
 
       console.log("Extracted uploads path:", uploadsPath);
-      
+
       return `${BASE_URL}/${uploadsPath}`;
     }
-    
+
     // 2. Handle paths without 'uploads/' prefix but that should have it
-    if (!resumePath.includes('uploads/') && 
-        !resumePath.includes('/') && 
-        (resumePath.endsWith('.pdf') || resumePath.endsWith('.doc') || resumePath.endsWith('.docx'))) {
+    if (!resumePath.includes('uploads/') &&
+      !resumePath.includes('/') &&
+      (resumePath.endsWith('.pdf') || resumePath.endsWith('.doc') || resumePath.endsWith('.docx'))) {
       console.log("Adding uploads/ prefix to filename");
       return `${BASE_URL}/uploads/${resumePath}`;
     }
-    
+
     // 3. Standard case: Remove any leading slash to prevent double slashes
     const cleanPath = resumePath.startsWith('/') ? resumePath.substring(1) : resumePath;
     console.log("Using standard path resolution:", `${BASE_URL}/${cleanPath}`);
@@ -306,47 +311,47 @@ const Applications = () => {
       setError("No resume file available");
       return;
     }
-    
+
     const resumeUrl = getResumeUrl(resumePath);
     window.open(resumeUrl, '_blank');
   };
-  
+
   // Function to download resume
   const downloadResume = async (resumePath, candidateName) => {
     if (!resumePath) {
       setError("No resume file available");
       return;
     }
-    
+
     try {
       const resumeUrl = getResumeUrl(resumePath);
-      
+
       // Create a filename based on the candidate's name and date
       const safeFileName = candidateName.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const fileName = `${safeFileName}_resume_${new Date().toISOString().slice(0, 10)}.pdf`;
-      
-      // Fetch the file as a blob
+
+      // Fetch the file as a blob 
       const response = await fetch(resumeUrl);
-      
+
       if (!response.ok) {
         throw new Error(`Failed to download resume: ${response.statusText}`);
       }
-      
+
       const blob = await response.blob();
-      
+
       // Create a URL for the blob
       const blobUrl = window.URL.createObjectURL(blob);
-      
+
       // Create a temporary anchor element to trigger the download
       const downloadLink = document.createElement('a');
       downloadLink.href = blobUrl;
       downloadLink.download = fileName;
-      
+
       // Append, click, and remove the download link
       document.body.appendChild(downloadLink);
       downloadLink.click();
       document.body.removeChild(downloadLink);
-      
+
       // Release the blob URL
       window.URL.revokeObjectURL(blobUrl);
     } catch (error) {
@@ -354,33 +359,33 @@ const Applications = () => {
       setError(error.message || "Failed to download resume");
     }
   };
-  
+
   // Function to preview resume in modal
   const previewResume = (resumePath) => {
     if (!resumePath) {
       setError("No resume file available");
       return;
     }
-    
+
     const resumeUrl = getResumeUrl(resumePath);
     setResumePreview(resumeUrl);
   };
-  
+
   // Function to close resume preview
   const closeResumePreview = () => {
     setResumePreview(null);
   };
-  
+
   // Determine file type from URL
   const getFileType = (url) => {
     if (!url) return 'unknown';
-    
+
     const extension = url.split('.').pop().toLowerCase();
-    
+
     if (['pdf'].includes(extension)) return 'pdf';
     if (['doc', 'docx'].includes(extension)) return 'word';
     if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) return 'image';
-    
+
     return 'unknown';
   };
 
@@ -398,7 +403,7 @@ const Applications = () => {
     <div className="applications-container">
       <div className="applications-header">
         <h1>Applications Management</h1>
-        
+
         {/* Export button */}
         <div className="export-container">
           <CSVLink
@@ -425,7 +430,7 @@ const Applications = () => {
             className="filter-input"
           />
         </div>
-        
+
         <div className="filter-item">
           <label htmlFor="status-filter">Filter by Status:</label>
           <select
@@ -466,11 +471,11 @@ const Applications = () => {
             ) : (
               filteredApplications.map((application) => {
                 const applicant = application.candidate || application.guestInfo;
-                const applicantName = applicant?.fullName || 
-                  `${applicant?.firstname || ''} ${applicant?.lastname || ''}`.trim() || 
+                const applicantName = applicant?.fullName ||
+                  `${applicant?.firstname || ''} ${applicant?.lastname || ''}`.trim() ||
                   'Unnamed Applicant';
                 const fileType = getFileType(application.resume);
-                
+
                 return (
                   <tr key={application._id} style={{ textAlign: 'center', border: '1px solid #000' }}>
                     <td>
@@ -486,54 +491,45 @@ const Applications = () => {
                       </div>
                     </td>
                     <td>
-                      {application.resume ? (
+                      {application.candidate?.resume ? (
                         <div className="resume-actions">
                           <div className="file-type-badge">
                             <FileText size={14} />
                             <span>{fileType.toUpperCase()}</span>
                           </div>
-                          
+
                           <div className="resume-buttons">
                             {/* View button */}
-                            <button 
-                              onClick={() => viewResumeInNewTab(application.resume, application._id)}
+                            <button
+                              onClick={() => viewResumeInNewTab(application.candidate.resume, application._id)}
                               className="resume-action-button view-button"
                               title="Open in new tab"
                             >
                               <ExternalLink size={16} />
                             </button>
-                            
+
                             {/* Preview button - for PDFs and images only */}
                             {['pdf', 'image'].includes(fileType) && (
-                              <button 
-                                onClick={() => previewResume(application.resume, application._id)}
+                              <button
+                                onClick={() => previewResume(application.candidate.resume, application._id)}
                                 className="resume-action-button preview-button"
                                 title="Preview"
                               >
                                 <Eye size={16} />
                               </button>
                             )}
-                            
+
                             {/* Download button */}
-                            <button 
-                              onClick={() => downloadResume(application.resume, applicantName, application._id)}
+                            <button
+                              onClick={() => downloadResume(
+                                application.candidate.resume,
+                                application.candidate.fullName || `${application.candidate.firstname || ''} ${application.candidate.lastname || ''}`.trim(),
+                                application._id
+                              )}
                               className="resume-action-button download-button"
                               title="Download"
                             >
                               <Download size={16} />
-                            </button>
-                            
-                            {/* Debug button */}
-                            <button 
-                              onClick={() => debugResumeData(application)}
-                              className="resume-action-button debug-button"
-                              title="Debug Resume Path"
-                              style={{
-                                backgroundColor: '#fee2e2',
-                                color: '#b91c1c',
-                              }}
-                            >
-                              <AlertTriangle size={16} />
                             </button>
                           </div>
                         </div>
@@ -544,6 +540,11 @@ const Applications = () => {
                         </span>
                       )}
                     </td>
+
+
+
+
+
                     <td>
                       <span className={`status-badge status-${application.status}`}>
                         {application.status}
@@ -558,20 +559,20 @@ const Applications = () => {
                         >
                           Update Status
                         </button>
-                        
+
                         {/* Delete Button */}
                         {deleteConfirmationId === application._id ? (
                           <div className="delete-confirmation">
                             <p>Are you sure?</p>
                             <div className="confirmation-buttons">
-                              <button 
+                              <button
                                 onClick={() => deleteApplication(application._id)}
                                 className="confirm-delete-button"
                                 disabled={deletingApplication}
                               >
                                 {deletingApplication ? 'Deleting...' : 'Yes, Delete'}
                               </button>
-                              <button 
+                              <button
                                 onClick={hideDeleteConfirmation}
                                 className="cancel-delete-button"
                               >
@@ -599,8 +600,8 @@ const Applications = () => {
 
       {/* Pagination Controls */}
       <div className="pagination-controls">
-        <button 
-          onClick={() => handlePageChange(page - 1)} 
+        <button
+          onClick={() => handlePageChange(page - 1)}
           disabled={page === 1}
           className="pagination-button"
         >
@@ -609,8 +610,8 @@ const Applications = () => {
         <span className="page-indicator">
           Page {page} of {totalPages}
         </span>
-        <button 
-          onClick={() => handlePageChange(page + 1)} 
+        <button
+          onClick={() => handlePageChange(page + 1)}
           disabled={page === totalPages}
           className="pagination-button"
         >
@@ -624,19 +625,19 @@ const Applications = () => {
           <div className="status-modal">
             <div className="modal-header">
               <h2>Update Application Status</h2>
-              <button 
+              <button
                 onClick={closeStatusUpdateModal}
                 className="close-button"
               >
                 &times;
               </button>
             </div>
-            
+
             <div className="modal-body">
               <p>
                 <strong>Applicant:</strong> {
-                  selectedApplication.candidate?.fullName || 
-                  `${selectedApplication.candidate?.firstname || ''} ${selectedApplication.candidate?.lastname || ''}`.trim() || 
+                  selectedApplication.candidate?.fullName ||
+                  `${selectedApplication.candidate?.firstname || ''} ${selectedApplication.candidate?.lastname || ''}`.trim() ||
                   selectedApplication.guestInfo?.fullName ||
                   'N/A'
                 }
@@ -648,12 +649,12 @@ const Applications = () => {
                 <strong>Spa:</strong> {selectedApplication.job?.spa?.name || 'N/A'}
               </p>
               <p>
-                <strong>Current Status:</strong> 
+                <strong>Current Status:</strong>
                 <span className={`status-badge status-${selectedApplication.status}`}>
                   {selectedApplication.status}
                 </span>
               </p>
-              
+
               <div className="status-selection">
                 <label htmlFor="new-status">Select New Status:</label>
                 <div className="status-buttons">
@@ -670,9 +671,9 @@ const Applications = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="modal-footer">
-              <button 
+              <button
                 onClick={closeStatusUpdateModal}
                 className="cancel-button"
               >
@@ -682,33 +683,37 @@ const Applications = () => {
           </div>
         </div>
       )}
-      
+
+
+
+
+
       {/* Resume Preview Modal */}
       {resumePreview && (
         <div className="modal-overlay">
           <div className="resume-preview-modal">
             <div className="modal-header">
               <h2>Resume Preview</h2>
-              <button 
+              <button
                 onClick={closeResumePreview}
                 className="close-button"
               >
                 &times;
               </button>
             </div>
-            
+
             <div className="resume-preview-container">
-              <iframe 
-                src={resumePreview} 
-                title="Resume Preview" 
+              <iframe
+                src={resumePreview}
+                title="Resume Preview"
                 className="resume-preview-frame"
               ></iframe>
             </div>
-            
+
             <div className="modal-footer">
-              <a 
-                href={resumePreview} 
-                download 
+              <a
+                href={resumePreview}
+                download
                 className="download-button"
                 target="_blank"
                 rel="noopener noreferrer"
@@ -716,7 +721,7 @@ const Applications = () => {
                 <Download size={16} />
                 Download
               </a>
-              <button 
+              <button
                 onClick={closeResumePreview}
                 className="cancel-button"
               >
@@ -726,7 +731,11 @@ const Applications = () => {
           </div>
         </div>
       )}
-      
+
+
+
+
+
       {/* Error notification */}
       {error && (
         <div className="error-notification">
@@ -734,7 +743,7 @@ const Applications = () => {
           <button onClick={() => setError(null)}>Dismiss</button>
         </div>
       )}
-      
+
       {/* CSS for the enhanced resume features */}
       <style jsx>{`
         .resume-actions {
