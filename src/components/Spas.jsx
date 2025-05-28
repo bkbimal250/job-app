@@ -4,7 +4,7 @@ import axios from "axios";
 import { getToken } from "../utils/getToken";
 import { useNavigate } from "react-router-dom";
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ;
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Spas = () => {
   const navigate = useNavigate();
@@ -16,7 +16,7 @@ const Spas = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [spasPerPage] = useState(10);
@@ -30,16 +30,16 @@ const Spas = () => {
       const data = Array.isArray(response.data)
         ? response.data
         : Array.isArray(response.data?.data)
-        ? response.data.data
-        : [];
-      
+          ? response.data.data
+          : [];
+
       // Sort spas alphabetically by name
       const sortedSpas = data.sort((a, b) => {
         const nameA = (a.name || "").toLowerCase();
         const nameB = (b.name || "").toLowerCase();
         return nameA.localeCompare(nameB);
       });
-      
+
       setSpas(sortedSpas);
       if (!sortedSpas.length) setError("No spa data found");
     } catch (err) {
@@ -80,7 +80,7 @@ const Spas = () => {
       const phoneMatch = phoneFilter === "" || spa.phone?.includes(phoneFilter);
       return (nameMatch || streetMatch) && stateMatch && cityMatch && phoneMatch;
     });
-    
+
     // Keep filtered results in alphabetical order
     return filtered.sort((a, b) => {
       const nameA = (a.name || "").toLowerCase();
@@ -88,10 +88,10 @@ const Spas = () => {
       return nameA.localeCompare(nameB);
     });
   };
-    
+
   // Filtered spas with pagination
   const filteredSpas = getFilteredSpas();
-  
+
   // Pagination calculation
   const indexOfLastSpa = currentPage * spasPerPage;
   const indexOfFirstSpa = indexOfLastSpa - spasPerPage;
@@ -122,18 +122,18 @@ const Spas = () => {
     if (window.confirm(`Are you sure you want to delete ${spa.name}?`)) {
       try {
         await axios.delete(`${BASE_URL}/spas/spa/${spa._id}`, {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${getToken()}`,
             "Content-Type": "application/json"
           }
         });
-        
+
         // Refresh the spa list
         fetchSpas();
         setSuccessMessage("Spa has been deleted successfully!");
       } catch (err) {
         console.error("Delete failed:", err);
-        
+
         // Set a more specific error message
         if (err.response) {
           setError(`Failed to delete spa: ${err.response.data?.message || err.response.statusText || 'Server error'} (Status: ${err.response.status})`);
@@ -159,7 +159,7 @@ const Spas = () => {
             Add New Spa
           </button>
         </div>
-        
+
         {/* Success Message */}
         {successMessage && (
           <div className="mb-6 p-4 bg-emerald-50 border-l-4 border-emerald-500 text-emerald-700 rounded-lg flex items-center shadow-sm">
@@ -278,15 +278,15 @@ const Spas = () => {
                       <td className="px-4 py-3 text-slate-700">{spa.phone || "-"}</td>
                       <td className="px-4 py-3">
                         <div className="flex gap-3">
-                          <button 
-                            onClick={() => handleEditSpa(spa)} 
+                          <button
+                            onClick={() => handleEditSpa(spa)}
                             className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-full transition shadow-sm"
                             title="Edit Spa"
                           >
                             <Pencil size={18} />
                           </button>
-                          <button 
-                            onClick={() => handleDeleteSpa(spa)} 
+                          <button
+                            onClick={() => handleDeleteSpa(spa)}
                             className="p-1.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-full transition shadow-sm"
                             title="Delete Spa"
                           >
@@ -300,7 +300,7 @@ const Spas = () => {
               </tbody>
             </table>
           </div>
-          
+
           {/* Pagination */}
           {!isLoading && filteredSpas.length > 0 && (
             <div className="px-6 py-4 border-t border-slate-200 bg-slate-50 rounded-b-lg">
@@ -308,25 +308,24 @@ const Spas = () => {
                 <div className="text-sm text-slate-600">
                   Showing <span className="font-medium text-indigo-700">{indexOfFirstSpa + 1}</span> to <span className="font-medium text-indigo-700">{Math.min(indexOfLastSpa, filteredSpas.length)}</span> of <span className="font-medium text-indigo-700">{filteredSpas.length}</span> spas
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={goToPreviousPage}
                     disabled={currentPage === 1}
-                    className={`flex items-center justify-center w-8 h-8 rounded-md transition ${
-                      currentPage === 1 
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                    className={`flex items-center justify-center w-8 h-8 rounded-md transition ${currentPage === 1
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'bg-white text-indigo-600 hover:bg-indigo-50 border border-slate-300'
-                    }`}
+                      }`}
                   >
                     <ChevronLeft size={16} />
                   </button>
-                  
+
                   {/* Page number buttons */}
                   <div className="flex space-x-1">
                     {Array.from({ length: Math.min(5, totalPages) }).map((_, idx) => {
                       let pageNum;
-                      
+
                       // Display logic for showing relevant page numbers
                       if (totalPages <= 5) {
                         // If 5 or fewer pages, show all
@@ -341,27 +340,26 @@ const Spas = () => {
                         // Otherwise show current page and 2 on each side
                         pageNum = currentPage - 2 + idx;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
                           onClick={() => paginate(pageNum)}
-                          className={`flex items-center justify-center w-8 h-8 rounded-md transition ${
-                            currentPage === pageNum
+                          className={`flex items-center justify-center w-8 h-8 rounded-md transition ${currentPage === pageNum
                               ? 'bg-indigo-600 text-white'
                               : 'bg-white text-slate-700 hover:bg-indigo-50 border border-slate-300'
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       );
                     })}
-                    
+
                     {/* Show ellipsis if there are more pages */}
                     {totalPages > 5 && currentPage < totalPages - 2 && (
                       <span className="flex items-center justify-center w-8 h-8 text-slate-500">...</span>
                     )}
-                    
+
                     {/* Always show last page if there are more than 5 pages and we're not already showing it */}
                     {totalPages > 5 && currentPage < totalPages - 2 && (
                       <button
@@ -372,15 +370,14 @@ const Spas = () => {
                       </button>
                     )}
                   </div>
-                  
+
                   <button
                     onClick={goToNextPage}
                     disabled={currentPage === totalPages}
-                    className={`flex items-center justify-center w-8 h-8 rounded-md transition ${
-                      currentPage === totalPages 
-                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                    className={`flex items-center justify-center w-8 h-8 rounded-md transition ${currentPage === totalPages
+                        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'bg-white text-indigo-600 hover:bg-indigo-50 border border-slate-300'
-                    }`}
+                      }`}
                   >
                     <ChevronRight size={16} />
                   </button>

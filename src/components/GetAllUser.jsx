@@ -392,7 +392,7 @@ const GetAllUser = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Gender</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Resume</th>
+                    
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -433,25 +433,6 @@ const GetAllUser = () => {
                           </div>
                         </td>
 
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-700">
-                          <div className="flex items-center">
-                            {user.resume ? (
-                              <button
-                                onClick={() => handleViewResume(user.resume)}
-                                className="flex items-center px-3 py-1.5 bg-green-50 text-green-700 hover:bg-green-100 rounded-lg transition text-sm font-medium"
-                                title="View Resume"
-                              >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View Resume
-                              </button>
-                            ) : (
-                              <div className="flex items-center text-gray-400">
-                                <FileText className="h-4 w-4 mr-2" />
-                                No Resume
-                              </div>
-                            )}
-                          </div>
-                        </td>
 
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <div className="flex space-x-2">

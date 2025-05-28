@@ -256,15 +256,19 @@ const Applications = () => {
     'candidate.fullName':
       application.candidate?.fullName ||
       `${application.candidate?.firstname || ''} ${application.candidate?.lastname || ''}`.trim() ||
-      application.guestInfo?.fullName ||
-      '',
+      application.guestInfo?.fullName || // try guest fullName first
+      application.guestInfo?.name || '', // fallback to guest name
     'candidate.email': application.candidate?.email || application.guestInfo?.email || '',
     'candidate.phone': application.candidate?.phone || application.guestInfo?.phone || '',
-    resume: application.resume || application.candidate?.resume ? 'Available' : 'No Resume',
+    resume:
+      application.resume || application.candidate?.resume ? 'Available' : 'No Resume',
     coverLetter: application.coverLetter || 'No Cover Letter',
     status: application.status || '',
-    appliedAt: application.appliedAt ? new Date(application.appliedAt).toLocaleString() : '',
+    appliedAt: application.appliedAt
+      ? new Date(application.appliedAt).toLocaleString()
+      : '',
   }));
+
 
 
   // Get complete resume URL with better path handling
@@ -439,7 +443,7 @@ const Applications = () => {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="filter-select"
           >
-            <option value="">All Statuses</option>
+            <option value="">Select all  Status </option>
             <option value={APPLICATION_STATUSES.PENDING}>Pending</option>
             <option value={APPLICATION_STATUSES.SHORTLISTED}>Shortlisted</option>
             <option value={APPLICATION_STATUSES.REJECTED}>Rejected</option>
@@ -469,12 +473,17 @@ const Applications = () => {
                 </td>
               </tr>
             ) : (
+
               filteredApplications.map((application) => {
                 const applicant = application.candidate || application.guestInfo;
-                const applicantName = applicant?.fullName ||
+
+                const applicantName =
+                  applicant?.fullName ||
                   `${applicant?.firstname || ''} ${applicant?.lastname || ''}`.trim() ||
+                  applicant?.name || // For guestInfo.name
                   'Unnamed Applicant';
-                const fileType = getFileType(application.resume);
+
+                const fileType = getFileType(application.candidate?.resume || application.resume);
 
                 return (
                   <tr key={application._id} style={{ textAlign: 'center', border: '1px solid #000' }}>
@@ -490,8 +499,10 @@ const Applications = () => {
                         <div>{applicant?.phone || 'N/A'}</div>
                       </div>
                     </td>
+
                     <td>
-                      {application.candidate?.resume ? (
+
+                      {application.candidate?.resume || application.resume ? (
                         <div className="resume-actions">
                           <div className="file-type-badge">
                             <FileText size={14} />
@@ -499,19 +510,23 @@ const Applications = () => {
                           </div>
 
                           <div className="resume-buttons">
-                            {/* View button */}
                             <button
-                              onClick={() => viewResumeInNewTab(application.candidate.resume, application._id)}
+                              onClick={() => viewResumeInNewTab(
+                                application.candidate?.resume || application.resume,
+                                application._id
+                              )}
                               className="resume-action-button view-button"
                               title="Open in new tab"
                             >
                               <ExternalLink size={16} />
                             </button>
 
-                            {/* Preview button - for PDFs and images only */}
                             {['pdf', 'image'].includes(fileType) && (
                               <button
-                                onClick={() => previewResume(application.candidate.resume, application._id)}
+                                onClick={() => previewResume(
+                                  application.candidate?.resume || application.resume,
+                                  application._id
+                                )}
                                 className="resume-action-button preview-button"
                                 title="Preview"
                               >
@@ -519,13 +534,14 @@ const Applications = () => {
                               </button>
                             )}
 
-                            {/* Download button */}
                             <button
-                              onClick={() => downloadResume(
-                                application.candidate.resume,
-                                application.candidate.fullName || `${application.candidate.firstname || ''} ${application.candidate.lastname || ''}`.trim(),
-                                application._id
-                              )}
+                              onClick={() =>
+                                downloadResume(
+                                  application.candidate?.resume || application.resume,
+                                  applicantName,
+                                  application._id
+                                )
+                              }
                               className="resume-action-button download-button"
                               title="Download"
                             >
@@ -539,6 +555,9 @@ const Applications = () => {
                           No Resume
                         </span>
                       )}
+
+
+
                     </td>
 
 
@@ -595,6 +614,8 @@ const Applications = () => {
               })
             )}
           </tbody>
+
+
         </table>
       </div>
 
