@@ -17,6 +17,8 @@ import EditSpaForm from "./components/EditSpaForm";
 import EditSpaJobForm from "./components/EditSpaJobForm";
 import SpaView from "./components/SpaView";
 import JobView from "./components/JobView";
+import Viewprofile from "./components/Viewprofile";
+import Editprofile from "./components/Editprofile";
 
 function App() {
   return (
@@ -43,6 +45,8 @@ function App() {
             <Route path="/edit-spa/:id" element={<EditSpaForm />} />
             <Route path="/view-job/:id" element={<JobView />} />
             <Route path="/view-spa/:id" element={<SpaView />} />
+            <Route path="/view-profile" element={<Viewprofile />} />
+            <Route path="/edit-profile" element={<Editprofile />} />
             <Route path="*" element={<Dashboard />} />
           </Route>
         </Route>

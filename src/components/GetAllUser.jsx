@@ -7,6 +7,7 @@ import {
 import axios from "axios";
 import { AuthContext } from "../auth/AuthContext";
 import { getToken } from "../utils/getToken";
+import { constructImageUrl } from "../utils/constructImageUrl";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const GetAllUser = () => {
@@ -402,9 +403,22 @@ const GetAllUser = () => {
                       <tr key={user._id || index} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
                           <div className="flex items-center">
-                            <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold mr-3">
-                              {user.firstname?.[0] || user.fullName?.[0] || 'U'}
-                            </div>
+                            {(() => {
+                              const imagePath = user.profileimage || user.profileImage || user.avatar;
+                              const imageUrl = constructImageUrl(imagePath);
+                              return imageUrl ? (
+                                <img
+                                  src={imageUrl}
+                                  alt={user.fullName || user.firstname || user.email || 'User'}
+                                  className="h-8 w-8 rounded-full object-cover border border-gray-200 mr-3"
+                                  onError={e => { e.target.onerror = null; e.target.src = 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.fullName || user.firstname || user.email || 'User'); }}
+                                />
+                              ) : (
+                                <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-800 font-bold mr-3">
+                                  {user.firstname?.[0] || user.fullName?.[0] || 'U'}
+                                </div>
+                              );
+                            })()}
                             {user.fullName}
                           </div>
                         </td>

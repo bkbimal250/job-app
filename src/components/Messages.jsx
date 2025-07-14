@@ -237,11 +237,11 @@ const Messages = () => {
                 <tr>
                   <th className="w-8 px-6 py-3">&nbsp;</th>
                   <th className="w-8 px-6 py-3">&nbsp;</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sender</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sender (Name, Email, Jobs)</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -249,7 +249,7 @@ const Messages = () => {
                 {filteredMessages.map((message) => (
                   <tr 
                     key={message.id} 
-                    className={`cursor-pointer ${message.status === 'unread' ? 'bg-blue-50' : ''}`}
+                    className={`cursor-pointer transition hover:bg-violet-50 ${message.status === 'unread' ? 'bg-blue-50' : ''}`}
                     onClick={() => openMessageDetails(message)}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -262,10 +262,14 @@ const Messages = () => {
                       <div>
                         <div className="font-medium">{message.sender}</div>
                         <div className="text-sm text-gray-500">{message.senderEmail}</div>
+                        {message.subject && message.subject.toLowerCase().includes('job') && (
+                          <div className="text-xs text-blue-600 font-semibold">{message.subject}</div>
+                        )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium">{message.subject}</td>
-                    <td className="px-6 py-4 whitespace-nowrap font-medium">{message.phone}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-700">{message.phone || '-'}</div>
+                    </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-500 truncate max-w-md">{message.snippet}</div>
                     </td>
@@ -273,27 +277,21 @@ const Messages = () => {
                       <div className="text-sm">{message.date}</div>
                       <div className="text-sm text-gray-500">{message.time}</div>
                     </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {/* Status dropdown */}
+                      <select
+                        className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 bg-gray-50"
+                        value={message.status}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => handleStatusChange(message.id, e.target.value)}
+                      >
+                        <option value="unread">Unread</option>
+                        <option value="read">Read</option>
+                        <option value="replied">Replied</option>
+                        <option value="closed">Closed</option>
+                      </select>
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <button 
-                        className="text-blue-600 hover:text-blue-900 mr-3" 
-                        title="Mark as replied"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusChange(message.id, 'replied');
-                        }}
-                      >
-                        <Reply size={18} />
-                      </button>
-                      <button 
-                        className="text-gray-600 hover:text-gray-900 mr-3" 
-                        title="Mark as closed"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleStatusChange(message.id, 'closed');
-                        }}
-                      >
-                        <Archive size={18} />
-                      </button>
                       <button 
                         className="text-red-600 hover:text-red-900" 
                         title="Delete"

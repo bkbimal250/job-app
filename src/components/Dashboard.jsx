@@ -5,53 +5,11 @@ import {
   Clock, Layout, PieChart, TrendingUp
 } from "lucide-react";
 import { getToken } from "../utils/getToken";
+import KeyMetricsSection from "./KeyMetricsSection";
+import ChartsSection from "./ChartsSection";
+import RecentActivity from "./RecentActivity";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-
-// ========== Component: StatCard ==========
-const StatCard = ({ title, value, icon: Icon, color, change, changeType, isLoading }) => (
-  <div className={`bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden transition duration-300 hover:shadow-md ${isLoading ? 'animate-pulse' : ''}`}>
-    <div className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500">{title}</p>
-          {isLoading ? (
-            <div className="h-8 w-20 bg-gray-200 rounded mt-1"></div>
-          ) : (
-            <h3 className="text-2xl font-bold mt-1 text-gray-800">{value.toLocaleString()}</h3>
-          )}
-
-          {!isLoading && change !== undefined && (
-            <div className={`flex items-center mt-2 text-sm ${changeType === 'increase' ? 'text-green-600' : 'text-red-600'}`}>
-              {changeType === 'increase' ? <ArrowUp size={14} className="mr-1" /> : <ArrowDown size={14} className="mr-1" />}
-              <span>{change}%</span>
-              <span className="text-gray-500 ml-1.5">vs last month</span>
-            </div>
-          )}
-        </div>
-        <div className={`p-3 rounded-xl ${color} transition-transform duration-300 hover:scale-110`}>
-          <Icon size={24} className="text-white" />
-        </div>
-      </div>
-    </div>
-    {!isLoading && (
-      <div className={`h-1 w-full ${color.replace('bg-', 'bg-').replace('500', '400')}`}></div>
-    )}
-  </div>
-);
-
-// ========== Component: ChartSkeleton ==========
-const ChartSkeleton = ({ height = "h-64" }) => (
-  <div className={`${height} w-full animate-pulse bg-gray-100 rounded-xl`}></div>
-);
-
-// ========== Component: SectionHeader ==========
-const SectionHeader = ({ title, icon: Icon }) => (
-  <div className="flex items-center mb-4">
-    <Icon size={20} className="text-gray-700 mr-2" />
-    <h2 className="text-xl font-bold text-gray-800">{title}</h2>
-  </div>
-);
 
 // ========== Component: SystemStatusCard ==========
 const SystemStatusCard = ({ title, status, lastChecked }) => (
@@ -104,94 +62,9 @@ const DashboardHeader = ({ lastUpdated, isRefreshing, handleRefresh, formatLastU
   </div>
 );
 
-// ========== Component: KeyMetricsSection ==========
-const KeyMetricsSection = ({ loading, stats }) => (
-  <section className="mb-8">
-    <SectionHeader title="Key Metrics" icon={BarChart2} />
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-      {loading
-        ? Array(5).fill(0).map((_, index) => (
-            <StatCard 
-              key={index} 
-              title="Loading..." 
-              value={0} 
-              icon={RefreshCw} 
-              color="bg-gray-300" 
-              isLoading={true} 
-            />
-          ))
-        : stats.map((stat, index) => <StatCard key={index} {...stat} isLoading={false} />)
-      }
-    </div>
-  </section>
-);
-
-// ========== Component: ChartsSection ==========
-const ChartsSection = ({ loading }) => (
-  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-    {/* User Growth Chart */}
-    <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <SectionHeader title="User Growth" icon={TrendingUp} />
-      {loading ? (
-        <ChartSkeleton />
-      ) : (
-        <div className="h-64 w-full">
-          <p className="text-center text-gray-500 h-full flex items-center justify-center">
-            [User Growth Chart would be rendered here]
-          </p>
-        </div>
-      )}
-    </div>
-
-    {/* Distribution Chart */}
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-      <SectionHeader title="User Distribution" icon={PieChart} />
-      {loading ? (
-        <ChartSkeleton />
-      ) : (
-        <div className="h-64 w-full">
-          <p className="text-center text-gray-500 h-full flex items-center justify-center">
-            [User Distribution Chart would be rendered here]
-          </p>
-        </div>
-      )}
-    </div>
-  </div>
-);
-
-// ========== Component: RecentActivitySection ==========
-const RecentActivitySection = ({ loading }) => (
-  <section className="mb-8">
-    <SectionHeader title="Recent Activity" icon={Calendar} />
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      {loading ? (
-        <div className="p-6 space-y-4">
-          {Array(5).fill(0).map((_, index) => (
-            <div key={index} className="flex items-center animate-pulse">
-              <div className="h-10 w-10 rounded-full bg-gray-200 mr-4"></div>
-              <div className="flex-1">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-100 rounded w-1/2"></div>
-              </div>
-              <div className="h-4 bg-gray-200 rounded w-20"></div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="p-6">
-          <p className="text-center text-gray-500">
-            [Recent activity data would be displayed here]
-          </p>
-        </div>
-      )}
-    </div>
-  </section>
-);
-
 // ========== Component: SystemStatusSection ==========
 const SystemStatusSection = ({ loading, lastUpdated, formatLastUpdated }) => (
   <section>
-    <SectionHeader title="System Status" icon={Layout} />
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       {loading ? (
         <div className="space-y-4">
@@ -261,7 +134,8 @@ const Dashboard = () => {
           icon: Building2,
           color: "bg-blue-500",
           change: 12.5,
-          changeType: 'increase'
+          changeType: 'increase',
+          link: '/spas',
         },
         {
           title: "Total Users",
@@ -269,7 +143,8 @@ const Dashboard = () => {
           icon: Users,
           color: "bg-green-500",
           change: 8.3,
-          changeType: 'increase'
+          changeType: 'increase',
+          link: '/users',
         },
         {
           title: "Total Messages",
@@ -277,7 +152,8 @@ const Dashboard = () => {
           icon: Eye,
           color: "bg-purple-500",
           change: 23.7,
-          changeType: 'increase'
+          changeType: 'increase',
+          link: '/messages',
         },
         {
           title: "Total Applications",
@@ -285,7 +161,8 @@ const Dashboard = () => {
           icon: FileText,
           color: "bg-orange-500",
           change: 20.2,
-          changeType: 'increase'
+          changeType: 'increase',
+          link: '/applications',
         },
         {
           title: "Total Jobs",
@@ -293,7 +170,8 @@ const Dashboard = () => {
           icon: Briefcase,
           color: "bg-indigo-500",
           change: 15.1,
-          changeType: 'increase'
+          changeType: 'increase',
+          link: '/jobs',
         },
       ]);
 
@@ -348,7 +226,7 @@ const Dashboard = () => {
           <ChartsSection loading={loading} />
 
           {/* Recent Activity Section */}
-          <RecentActivitySection loading={loading} />
+          <RecentActivity loading={loading} />
 
           {/* System Status Section */}
           <SystemStatusSection 
