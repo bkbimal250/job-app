@@ -8,6 +8,8 @@ import { getToken } from "../utils/getToken";
 import KeyMetricsSection from "./KeyMetricsSection";
 import ChartsSection from "./ChartsSection";
 import RecentActivity from "./RecentActivity";
+import { PieChart as PieChartRecharts, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import axios from "axios";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -106,6 +108,8 @@ const Dashboard = () => {
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [siteStats, setSiteStats] = useState({ total: 0, unique: 0 });
+  const [dailyVisits, setDailyVisits] = useState([]);
 
   // ===== Data Fetching =====
   const fetchDashboardData = async () => {
@@ -126,8 +130,25 @@ const Dashboard = () => {
 
       const data = await res.json();
 
-      // Process and set the statistics data
       setStats([
+        {
+          title: "Total Website Visits",
+          value: siteStats.total,
+          icon: Eye,
+          color: "bg-pink-500",
+          change: null,
+          changeType: null,
+          link: null,
+        },
+        {
+          title: "Unique Website Visitors",
+          value: siteStats.unique,
+          icon: Users,
+          color: "bg-green-500",
+          change: null,
+          changeType: null,
+          link: null,
+        },
         {
           title: "Total Spas",
           value: data.totalSpas || 0,
@@ -186,9 +207,43 @@ const Dashboard = () => {
     }
   };
 
+  const fetchDailyVisits = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/site/visits/daily`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getToken()}`,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setDailyVisits(data.data || []);
+      }
+    } catch (err) {
+      setDailyVisits([]);
+    }
+  };
+
+  const fetchSiteStats = async () => {
+    try {
+      const res = await fetch(`${BASE_URL}/site/stats`);
+      if (res.ok) {
+        const data = await res.json();
+        setSiteStats({
+          total: data.totalViews || 0,
+          unique: data.uniqueVisitors || 0,
+        });
+      }
+    } catch {
+      setSiteStats({ total: 0, unique: 0 });
+    }
+  };
+
   // ===== Effects =====
   useEffect(() => {
     fetchDashboardData();
+    fetchDailyVisits();
+    fetchSiteStats();
   }, []);
 
   // ===== Event Handlers =====
@@ -201,6 +256,13 @@ const Dashboard = () => {
     if (!date) return '';
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
+
+  // Color palette for pie chart
+  const PIE_COLORS = [
+    '#8884d8', '#8dd1e1', '#82ca9d', '#ffc658', '#ff8042', '#a4de6c', '#d0ed57', '#d8854f', '#d0ed57', '#a28fd0',
+    '#f7b267', '#f4845f', '#f27059', '#4f98ca', '#3da5d9', '#62c370', '#b2f7ef', '#f6dfeb', '#f7b7a3', '#ea5f89',
+    '#b8b3e9', '#f7c59f', '#ef6f6c', '#465775', '#56e39f', '#59c3c3', '#52489c', '#ebebeb', '#cad2c5', '#84a98c', '#52796f'
+  ];
 
   // ===== Render =====
   return (
@@ -221,6 +283,54 @@ const Dashboard = () => {
         <div className="bg-white p-6 rounded-xl shadow-sm">
           {/* Key Metrics Section */}
           <KeyMetricsSection loading={loading} stats={stats} />
+
+          {/* Daily Website Visits Pie Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
+            <h2 className="text-lg font-bold mb-4">Daily Website Visits (Pie Chart, Last 30 Days)</h2>
+            <ResponsiveContainer width="100%" height={320}>
+              <PieChartRecharts>
+                <Pie
+                  data={dailyVisits}
+                  dataKey="views"
+                  nameKey="date"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={120}
+                  label={({ name, views }) => views > 0 ? views : ''}
+                >
+                  {dailyVisits.map((entry, idx) => (
+                    <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value, name, props) => [`${value} visits`, 'Visits']} labelFormatter={label => {
+                  const entry = dailyVisits.find(d => new Date(d.date).toLocaleDateString() === label);
+                  return entry ? new Date(entry.date).toLocaleDateString() : label;
+                }} />
+                <Legend />
+              </PieChartRecharts>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Daily Website Visits Table */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mt-6">
+            <h2 className="text-lg font-bold mb-4">Daily Website Visits (Last 30 Days)</h2>
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th className="text-left py-2">Date</th>
+                  <th className="text-left py-2">Visits</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyVisits.map((item, idx) => (
+                  <tr key={idx}>
+                    <td className="py-1">{new Date(item.date).toLocaleDateString()}</td>
+                    <td className="py-1">{item.views}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {/* Charts Section */}
           <ChartsSection loading={loading} />

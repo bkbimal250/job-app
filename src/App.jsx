@@ -3,6 +3,8 @@ import { AuthProvider } from "./auth/AuthContext";
 import PrivateRoute from "./auth/PrivateRoute";
 import Layout from "./components/Layout";
 import Login from "./components/Login";
+import { useEffect } from "react";
+import axios from "axios";
 
 // Import all your components
 import AddSpaJobForm from "./components/AddSpaJobForm";
@@ -21,6 +23,9 @@ import Viewprofile from "./components/Viewprofile";
 import Editprofile from "./components/Editprofile";
 
 function App() {
+  useEffect(() => {
+    axios.get(`${import.meta.env.VITE_API_BASE_URL}/site/visit`).catch(() => {});
+  }, []);
   return (
     <AuthProvider>
       <Routes>

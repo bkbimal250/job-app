@@ -16,8 +16,8 @@ const Messages = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [messageCount, setMessageCount] = useState(0);
-  const [selectedMessage, setSelectedMessage] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
+  const [statusUpdateError, setStatusUpdateError] = useState(null);
 
   useEffect(() => {
     fetchMessages();
@@ -90,9 +90,11 @@ const Messages = () => {
   };
 
   const handleStatusChange = async (messageId, newStatus) => {
+    setStatusUpdating(true);
+    setStatusUpdateError(null);
+    console.log('Updating status for message', messageId, 'to', newStatus);
     try {
       const token = getToken();
-      
       await axios.patch(`${BASE_URL}/messages/${messageId}`, 
         { status: newStatus },
         {
@@ -102,15 +104,13 @@ const Messages = () => {
           }
         }
       );
-      
-      // Update the local state
-      setMessages(prevMessages => 
-        prevMessages.map(msg => 
-          msg.id === messageId ? { ...msg, status: newStatus } : msg
-        )
-      );
+      // Refetch messages to ensure consistency
+      await fetchMessages();
     } catch (error) {
       console.error('Error updating message status:', error);
+      setStatusUpdateError(error.response?.data?.error || 'Failed to update status');
+    } finally {
+      setStatusUpdating(false);
     }
   };
 
@@ -134,16 +134,6 @@ const Messages = () => {
       );
     } catch (error) {
       console.error('Error deleting message:', error);
-    }
-  };
-
-  const openMessageDetails = (message) => {
-    setSelectedMessage(message);
-    setShowModal(true);
-    
-    // Mark as read if it's unread
-    if (message.status === 'unread') {
-      handleStatusChange(message.id, 'read');
     }
   };
 
@@ -232,6 +222,11 @@ const Messages = () => {
           </div>
         ) : (
           <>
+            {statusUpdateError && (
+              <div className="text-center py-2">
+                <span className="text-red-600 font-medium">{statusUpdateError}</span>
+              </div>
+            )}
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
@@ -249,8 +244,7 @@ const Messages = () => {
                 {filteredMessages.map((message) => (
                   <tr 
                     key={message.id} 
-                    className={`cursor-pointer transition hover:bg-violet-50 ${message.status === 'unread' ? 'bg-blue-50' : ''}`}
-                    onClick={() => openMessageDetails(message)}
+                    className={`transition hover:bg-violet-50 ${message.status === 'unread' ? 'bg-blue-50' : ''}`}
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       {getStatusIcon(message.status)}
@@ -284,6 +278,7 @@ const Messages = () => {
                         value={message.status}
                         onClick={e => e.stopPropagation()}
                         onChange={e => handleStatusChange(message.id, e.target.value)}
+                        disabled={statusUpdating}
                       >
                         <option value="unread">Unread</option>
                         <option value="read">Read</option>
@@ -345,121 +340,6 @@ const Messages = () => {
           </>
         )}
       </div>
-
-      {/* Message Detail Modal */}
-      {showModal && selectedMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-xl font-bold">{selectedMessage.subject}</h2>
-                <button 
-                  className="text-gray-500 hover:text-gray-700"
-                  onClick={() => setShowModal(false)}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <div className="font-semibold text-lg">{selectedMessage.sender}</div>
-                  <div className="text-gray-600">{selectedMessage.senderEmail}</div>
-                  {selectedMessage.phone && (
-                    <div className="text-gray-600">{selectedMessage.phone}</div>
-                  )}
-                  {selectedMessage.location && (
-                    <div className="text-gray-600">{selectedMessage.location}</div>
-                  )}
-                </div>
-                <div className="text-gray-500 text-right">
-                  <div>{selectedMessage.date}</div>
-                  <div>{selectedMessage.time}</div>
-                </div>
-              </div>
-              
-              <div className="border-t border-gray-200 pt-4">
-                <div className="prose max-w-none">
-                  <div className="whitespace-pre-line">{selectedMessage.fullMessage}</div>
-                </div>
-              </div>
-              
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    Status: <span className="inline-flex items-center ml-1">
-                      {selectedMessage.status === 'unread' && <span className="text-blue-600 font-medium">Unread</span>}
-                      {selectedMessage.status === 'read' && <span className="text-green-600 font-medium">Read</span>}
-                      {selectedMessage.status === 'replied' && <span className="text-purple-600 font-medium">Replied</span>}
-                      {selectedMessage.status === 'closed' && <span className="text-gray-600 font-medium">Closed</span>}
-                    </span>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button 
-                      className="px-3 py-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
-                      onClick={() => {
-                        handleStatusChange(selectedMessage.id, 'replied');
-                        setSelectedMessage({...selectedMessage, status: 'replied'});
-                      }}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Reply size={16} />
-                        <span>Mark as Replied</span>
-                      </div>
-                    </button>
-                    <button 
-                      className="px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
-                      onClick={() => {
-                        handleStatusChange(selectedMessage.id, 'closed');
-                        setSelectedMessage({...selectedMessage, status: 'closed'});
-                      }}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Check size={16} />
-                        <span>Mark as Closed</span>
-                      </div>
-                    </button>
-                    <button 
-                      className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200"
-                      onClick={() => {
-                        handleDelete(selectedMessage.id);
-                        setShowModal(false);
-                      }}
-                    >
-                      <div className="flex items-center gap-1">
-                        <Trash2 size={16} />
-                        <span>Delete</span>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <button
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  onClick={() => {
-                    // Open default email client
-                    window.location.href = `mailto:${selectedMessage.senderEmail}?subject=Re: ${selectedMessage.subject}`;
-                    // Mark as replied
-                    handleStatusChange(selectedMessage.id, 'replied');
-                    setSelectedMessage({...selectedMessage, status: 'replied'});
-                  }}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <Reply size={20} />
-                    <span>Reply via Email</span>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
