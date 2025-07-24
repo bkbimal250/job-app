@@ -2,10 +2,10 @@ import React, { useEffect, useState } from "react";
 import { TrendingUp, PieChart as PieIcon, Briefcase, Mail, Globe } from "lucide-react";
 import { Line } from "react-chartjs-2";
 import SectionHeader from "./SectionHeader";
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler } from 'chart.js';
 import { getToken } from "../utils/getToken";
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, ArcElement, Filler);
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 

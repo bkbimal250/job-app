@@ -21,11 +21,10 @@ import SpaView from "./components/SpaView";
 import JobView from "./components/JobView";
 import Viewprofile from "./components/Viewprofile";
 import Editprofile from "./components/Editprofile";
+import Suscribers from "./components/Suscribers";
 
 function App() {
-  useEffect(() => {
-    axios.get(`${import.meta.env.VITE_API_BASE_URL}/site/visit`).catch(() => {});
-  }, []);
+  
   return (
     <AuthProvider>
       <Routes>
@@ -52,6 +51,7 @@ function App() {
             <Route path="/view-spa/:id" element={<SpaView />} />
             <Route path="/view-profile" element={<Viewprofile />} />
             <Route path="/edit-profile" element={<Editprofile />} />
+            <Route path="/suscribers" element={<Suscribers />} />
             <Route path="*" element={<Dashboard />} />
           </Route>
         </Route>

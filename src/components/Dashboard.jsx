@@ -112,28 +112,31 @@ const Dashboard = () => {
   const [dailyVisits, setDailyVisits] = useState([]);
 
   // ===== Data Fetching =====
-  const fetchDashboardData = async () => {
+  const fetchAllStats = async () => {
+    setLoading(true);
+    setIsRefreshing(true);
     try {
-      setIsRefreshing(true);
-
-      const res = await fetch(
-        `${BASE_URL}/stats`,
-        {
+      const [statsRes, siteStatsRes] = await Promise.all([
+        fetch(`${BASE_URL}/stats`, {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getToken()}`,
           },
-        }
-      );
-
-      if (!res.ok) throw new Error("Failed to fetch dashboard data");
-
-      const data = await res.json();
-
+        }),
+        fetch(`${BASE_URL}/site/stats`, {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getToken()}`,
+          },
+        })
+      ]);
+      if (!statsRes.ok || !siteStatsRes.ok) throw new Error("Failed to fetch dashboard data");
+      const data = await statsRes.json();
+      const siteData = await siteStatsRes.json();
       setStats([
         {
           title: "Total Website Visits",
-          value: siteStats.total,
+          value: siteData.totalViews || 0,
           icon: Eye,
           color: "bg-pink-500",
           change: null,
@@ -142,7 +145,7 @@ const Dashboard = () => {
         },
         {
           title: "Unique Website Visitors",
-          value: siteStats.unique,
+          value: siteData.uniqueVisitors || 0,
           icon: Users,
           color: "bg-green-500",
           change: null,
@@ -194,10 +197,18 @@ const Dashboard = () => {
           changeType: 'increase',
           link: '/jobs',
         },
+        {
+          title: "Total Suscriber",
+          value: data.totalsuscribers || 0,
+          icon: Users,
+          color: "bg-green-300",
+          change: 15.1,
+          changeType: 'increase',
+          link: '/jobs',
+        },
       ]);
-
-      setLastUpdated(new Date());
       setError(null);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error("Fetch error:", err);
       setError("Unable to load dashboard statistics. Please try again later.");
@@ -224,31 +235,15 @@ const Dashboard = () => {
     }
   };
 
-  const fetchSiteStats = async () => {
-    try {
-      const res = await fetch(`${BASE_URL}/site/stats`);
-      if (res.ok) {
-        const data = await res.json();
-        setSiteStats({
-          total: data.totalViews || 0,
-          unique: data.uniqueVisitors || 0,
-        });
-      }
-    } catch {
-      setSiteStats({ total: 0, unique: 0 });
-    }
-  };
-
   // ===== Effects =====
   useEffect(() => {
-    fetchDashboardData();
+    fetchAllStats();
     fetchDailyVisits();
-    fetchSiteStats();
   }, []);
 
   // ===== Event Handlers =====
   const handleRefresh = () => {
-    fetchDashboardData();
+    fetchAllStats();
   };
 
   // ===== Utility Functions =====

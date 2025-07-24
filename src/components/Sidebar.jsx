@@ -7,6 +7,7 @@ import {
   Building2,
   FileText,
   MessageSquare,
+  Mail,
 } from "lucide-react";
 
 const Sidebar = () => {
@@ -19,6 +20,7 @@ const Sidebar = () => {
     { path: "/jobs", icon: Briefcase, label: "Jobs" },
     { path: "/applications", icon: FileText, label: "Job Applications" },
     { path: "/messages", icon: MessageSquare, label: "Messages" },
+    { path: "/suscribers", icon: Mail, label: "Suscribers" },
   ];
 
   return (
