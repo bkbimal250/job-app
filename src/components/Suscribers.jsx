@@ -24,6 +24,11 @@ const Suscribers = () => {
     const [jobsError, setJobsError] = useState(null);
     const [jobSearch, setJobSearch] = useState("");
 
+    // New: search state for subscribers
+    const [subscriberSearch, setSubscriberSearch] = useState("");
+    // New: manual email input
+    const [manualEmail, setManualEmail] = useState("");
+
     useEffect(() => {
         const fetchSuscribers = async () => {
             try {
@@ -74,6 +79,11 @@ const Suscribers = () => {
             (job.state || '').toLowerCase().includes(search)
         );
     });
+
+    // New: filtered subscribers by search
+    const filteredSuscribers = suscribers.filter(s =>
+        s.email && s.email.toLowerCase().includes(subscriberSearch.toLowerCase())
+    );
 
     // Handle email selection
     const handleEmailSelect = (e) => {
@@ -161,6 +171,19 @@ const Suscribers = () => {
         }
     };
 
+    // New: handle manual email add
+    const handleAddManualEmail = () => {
+        const email = manualEmail.trim();
+        if (email && !selectedEmails.includes(email)) {
+            setSelectedEmails(prev => [...prev, email]);
+        }
+        setManualEmail("");
+    };
+    // New: handle copy email
+    const handleCopyEmail = (email) => {
+        navigator.clipboard.writeText(email);
+    };
+
     return (
         <div className="max-w-6xl mx-auto mt-10 bg-white p-4 md:p-8 rounded-xl shadow">
             <h2 className="text-2xl font-bold mb-6 text-center">Subscribers & Send Jobs</h2>
@@ -168,6 +191,14 @@ const Suscribers = () => {
                 {/* Left: Subscribers List */}
                 <div className="md:w-1/2 w-full">
                     <h3 className="text-lg font-semibold mb-3">Subscribers List</h3>
+                    {/* New: Search box for subscribers */}
+                    <input
+                        type="text"
+                        className="w-full border rounded px-3 py-2 mb-3"
+                        placeholder="Search subscribers by email..."
+                        value={subscriberSearch}
+                        onChange={e => setSubscriberSearch(e.target.value)}
+                    />
                     {loading ? (
                         <div className="flex justify-center items-center h-full">
                             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
@@ -178,11 +209,24 @@ const Suscribers = () => {
                         <div className="text-gray-600 text-center">No subscribers found.</div>
                     ) : (
                         <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto pr-2">
-                            {suscribers.map((suscriber) => (
+                            {filteredSuscribers.map((suscriber) => (
                                 <div key={suscriber._id} className="bg-gray-100 p-4 rounded-lg">
                                     <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center">
                                         <div>
-                                            <h3 className="text-lg font-bold break-all">{suscriber.email || <span className="text-gray-400">No email</span>}</h3>
+                                            <h3 className="text-lg font-bold break-all flex items-center">
+                                                {suscriber.email || <span className="text-gray-400">No email</span>}
+                                                {/* New: Copy button */}
+                                                {suscriber.email && (
+                                                    <button
+                                                        className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                        onClick={() => handleCopyEmail(suscriber.email)}
+                                                        type="button"
+                                                        title="Copy email"
+                                                    >
+                                                        Copy
+                                                    </button>
+                                                )}
+                                            </h3>
                                             <p className="text-gray-700">{suscriber.phone || <span className="text-gray-400">No phone</span>}</p>
                                             <p className="text-gray-500 text-sm">Preferred: {suscriber.preferredChannel || 'email'}</p>
                                         </div>
@@ -212,6 +256,24 @@ const Suscribers = () => {
                                     />
                                     <label htmlFor="selectAll" className="text-sm">Select All</label>
                                 </div>
+                                {/* New: Manual email add */}
+                                <div className="flex mb-2">
+                                    <input
+                                        type="email"
+                                        className="border rounded px-2 py-1 flex-1"
+                                        placeholder="Add any email manually..."
+                                        value={manualEmail}
+                                        onChange={e => setManualEmail(e.target.value)}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="ml-2 px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                                        onClick={handleAddManualEmail}
+                                        disabled={!manualEmail.trim()}
+                                    >
+                                        Add
+                                    </button>
+                                </div>
                                 <div className="max-h-32 overflow-y-auto border rounded p-2 bg-white">
                                     {suscribers.filter(s => s.email).map(s => (
                                         <div key={s._id} className="flex items-center mb-1">
@@ -223,6 +285,28 @@ const Suscribers = () => {
                                                 className="mr-2"
                                             />
                                             <span className="text-sm break-all">{s.email}</span>
+                                        </div>
+                                    ))}
+                                    {/* New: Show manually added emails */}
+                                    {selectedEmails.filter(email => !suscribers.some(s => s.email === email)).map(email => (
+                                        <div key={email} className="flex items-center mb-1">
+                                            <input
+                                                type="checkbox"
+                                                value={email}
+                                                checked={selectedEmails.includes(email)}
+                                                onChange={handleEmailSelect}
+                                                className="mr-2"
+                                            />
+                                            <span className="text-sm break-all text-green-700">{email}</span>
+                                            <span className="ml-2 text-xs text-green-600">(manual)</span>
+                                            <button
+                                                className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                                                onClick={() => handleCopyEmail(email)}
+                                                type="button"
+                                                title="Copy email"
+                                            >
+                                                Copy
+                                            </button>
                                         </div>
                                     ))}
                                 </div>

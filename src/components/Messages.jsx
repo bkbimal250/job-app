@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Search, Calendar, Mail, Star, Trash2, Reply, Archive, AlertCircle, Check, Loader } from 'lucide-react';
 import axios from 'axios';
 import { getToken } from '../utils/getToken';
+import { Modal } from 'react-responsive-modal';
+import 'react-responsive-modal/styles.css';
+import { useAuthUser } from '../auth/AuthContext';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ;
 
 const Messages = () => {
   const [messages, setMessages] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -16,12 +18,17 @@ const Messages = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [messageCount, setMessageCount] = useState(0);
-  const [statusUpdating, setStatusUpdating] = useState(false);
-  const [statusUpdateError, setStatusUpdateError] = useState(null);
+  const [replyModalOpen, setReplyModalOpen] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
+  const [replyError, setReplyError] = useState(null);
+
+  const user = useAuthUser();
 
   useEffect(() => {
     fetchMessages();
-  }, [currentPage, statusFilter]);
+  }, [currentPage]);
 
   const fetchMessages = async () => {
     setLoading(true);
@@ -37,11 +44,6 @@ const Messages = () => {
 
       // Build the query parameters
       let url = `${BASE_URL}/messages?page=${currentPage}`;
-      
-      if (statusFilter !== 'all') {
-        url += `&status=${statusFilter}`;
-      }
-      
       if (startDate && endDate) {
         url += `&startDate=${startDate}&endDate=${endDate}`;
       }
@@ -67,7 +69,10 @@ const Messages = () => {
           status: msg.status,
           important: msg.subject === 'jobs' || msg.subject === 'employer', // Mark job-related messages as important
           location: msg.location,
-          phone: msg.phone
+          phone: msg.phone,
+          replyMessage: msg.replyMessage,
+          repliedBy: msg.repliedBy || null,
+          repliedAt: msg.repliedAt ? new Date(msg.repliedAt).toLocaleString() : ''
         }));
         
         setMessages(formattedMessages);
@@ -89,30 +94,7 @@ const Messages = () => {
     fetchMessages();
   };
 
-  const handleStatusChange = async (messageId, newStatus) => {
-    setStatusUpdating(true);
-    setStatusUpdateError(null);
-    console.log('Updating status for message', messageId, 'to', newStatus);
-    try {
-      const token = getToken();
-      await axios.patch(`${BASE_URL}/messages/${messageId}`, 
-        { status: newStatus },
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        }
-      );
-      // Refetch messages to ensure consistency
-      await fetchMessages();
-    } catch (error) {
-      console.error('Error updating message status:', error);
-      setStatusUpdateError(error.response?.data?.error || 'Failed to update status');
-    } finally {
-      setStatusUpdating(false);
-    }
-  };
+
 
   const handleDelete = async (messageId) => {
     if (!window.confirm('Are you sure you want to delete this message?')) {
@@ -134,6 +116,48 @@ const Messages = () => {
       );
     } catch (error) {
       console.error('Error deleting message:', error);
+    }
+  };
+
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    setReplyText('');
+    setReplyError(null);
+    setReplyModalOpen(true);
+  };
+
+  const sendReply = async () => {
+    if (!replyText.trim()) {
+      setReplyError('Reply message cannot be empty.');
+      return;
+    }
+    setReplyLoading(true);
+    setReplyError(null);
+    try {
+      const token = getToken();
+      await axios.post(`${BASE_URL}/messages/${replyingTo.id}/reply`,
+        {
+          replyMessage: replyText,
+          repliedBy: {
+            name: user?.name || 'Admin',
+            email: user?.email || ''
+          }
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+      setReplyModalOpen(false);
+      setReplyingTo(null);
+      setReplyText('');
+      await fetchMessages();
+    } catch (error) {
+      setReplyError(error.response?.data?.error || 'Failed to send reply');
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -169,17 +193,7 @@ const Messages = () => {
               />
             </div>
             
-            <select
-              className="border rounded-lg px-4 py-2"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-            >
-              <option value="all">All Messages</option>
-              <option value="unread">Unread</option>
-              <option value="read">Read</option>
-              <option value="replied">Replied</option>
-              <option value="closed">Closed</option>
-            </select>
+        
             
             <div className="relative">
               <Calendar className="absolute left-3 top-3 text-gray-400" size={20} />
@@ -222,80 +236,69 @@ const Messages = () => {
           </div>
         ) : (
           <>
-            {statusUpdateError && (
-              <div className="text-center py-2">
-                <span className="text-red-600 font-medium">{statusUpdateError}</span>
-              </div>
-            )}
-            <table className="w-full">
+            <table className="w-full min-w-[700px] overflow-x-auto text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="w-8 px-6 py-3">&nbsp;</th>
-                  <th className="w-8 px-6 py-3">&nbsp;</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sender (Name, Email, Jobs)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Preview</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Sender</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Preview</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Reply</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Date</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredMessages.map((message) => (
-                  <tr 
-                    key={message.id} 
-                    className={`transition hover:bg-violet-50 ${message.status === 'unread' ? 'bg-blue-50' : ''}`}
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {getStatusIcon(message.status)}
+                  <tr key={message.id} className="hover:bg-violet-50">
+                    <td className="px-4 py-2 whitespace-nowrap font-medium">
+                      <div>{message.sender}</div>
+                      <div className="text-xs text-gray-500">{message.senderEmail}</div>
+                      <div className="text-xs text-gray-400">{message.phone || '-'}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {message.important && <Star size={20} className="text-yellow-500 fill-current" />}
+                    <td className="px-4 py-2 max-w-xs truncate text-gray-700">{message.snippet}</td>
+                    <td className="px-4 py-2">
+                      {message.replyMessage ? (
+                        <div className="bg-green-50 border border-green-200 rounded p-2 text-green-700 text-xs">
+                          <b>Reply:</b> {message.replyMessage}
+                          {(message.repliedBy || message.repliedAt) && (
+                            <div className="mt-1 text-green-800 text-xxs">
+                              <span>
+                                By: {message.repliedBy && `${message.repliedBy.firstname} ${message.repliedBy.lastname}`}
+                                {message.repliedBy && message.repliedBy.email && (
+                                  <span> ({message.repliedBy.email})</span>
+                                )}
+                                {message.repliedAt && <span> | {message.repliedAt}</span>}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400 italic">No reply yet</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="font-medium">{message.sender}</div>
-                        <div className="text-sm text-gray-500">{message.senderEmail}</div>
-                        {message.subject && message.subject.toLowerCase().includes('job') && (
-                          <div className="text-xs text-blue-600 font-semibold">{message.subject}</div>
-                        )}
-                      </div>
+                    <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                      <div>{message.date}</div>
+                      <div className="text-xs">{message.time}</div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-700">{message.phone || '-'}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-500 truncate max-w-md">{message.snippet}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm">{message.date}</div>
-                      <div className="text-sm text-gray-500">{message.time}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {/* Status dropdown */}
-                      <select
-                        className="border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-violet-400 focus:border-violet-400 bg-gray-50"
-                        value={message.status}
-                        onClick={e => e.stopPropagation()}
-                        onChange={e => handleStatusChange(message.id, e.target.value)}
-                        disabled={statusUpdating}
-                      >
-                        <option value="unread">Unread</option>
-                        <option value="read">Read</option>
-                        <option value="replied">Replied</option>
-                        <option value="closed">Closed</option>
-                      </select>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <td className="px-4 py-2 whitespace-nowrap text-sm">
                       <button 
-                        className="text-red-600 hover:text-red-900" 
+                        className="text-red-600 hover:text-red-900 mr-2" 
                         title="Delete"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDelete(message.id);
                         }}
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
+                      </button>
+                      <button
+                        className="text-blue-600 hover:text-blue-900"
+                        title={message.replyMessage ? 'Update Reply' : 'Reply'}
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleReply(message);
+                        }}
+                      >
+                        <Reply size={16} /> {message.replyMessage ? 'Update Reply' : 'Reply'}
                       </button>
                     </td>
                   </tr>
@@ -340,6 +343,49 @@ const Messages = () => {
           </>
         )}
       </div>
+
+      {/* Reply Modal */}
+      <Modal open={replyModalOpen} onClose={() => setReplyModalOpen(false)} center>
+        <h2 className="text-lg font-bold mb-2">Reply to {replyingTo?.sender}</h2>
+        {replyingTo && (
+          <div className="mb-2 p-2 bg-gray-50 border border-gray-200 rounded text-gray-700 text-xs">
+            <b>Original Message:</b>
+            <div className="whitespace-pre-line">{replyingTo.fullMessage}</div>
+            {replyingTo.replyMessage && (
+              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-green-700 text-xs">
+                <b>Existing Reply:</b> {replyingTo.replyMessage}
+                {replyingTo.repliedBy && (
+                  <div className="mt-1 text-green-800 text-xxs">
+                    <span>
+                      By: {replyingTo.repliedBy.firstname} {replyingTo.repliedBy.lastname}
+                      {replyingTo.repliedBy.email && (
+                        <span> ({replyingTo.repliedBy.email})</span>
+                      )}
+                    </span>
+                    {replyingTo.repliedAt && <span> | {replyingTo.repliedAt}</span>}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        <textarea
+          className="w-full border rounded p-2 mb-2"
+          rows={5}
+          value={replyText}
+          onChange={e => setReplyText(e.target.value)}
+          placeholder="Type your reply here..."
+          disabled={replyLoading}
+        />
+        {replyError && <div className="text-red-600 mb-2">{replyError}</div>}
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          onClick={sendReply}
+          disabled={replyLoading}
+        >
+          {replyLoading ? 'Sending...' : 'Send Reply'}
+        </button>
+      </Modal>
     </div>
   );
 };
